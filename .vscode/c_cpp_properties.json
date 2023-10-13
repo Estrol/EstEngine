@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/build/vcpkg_installed/x64-windows/include",
+                "${vcpkgRoot}/x64-windows/include",
+                "${VULKAN_SDK}/include",
+                "${workspaceFolder}/lib/include"
+            ],
+            "intelliSenseMode": "windows-msvc-x64",
+            "compilerPath": "cl.exe",
+            "cStandard": "c17"
+        }
+    ],
+    "version": 4
+}

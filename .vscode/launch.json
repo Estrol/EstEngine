@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "program": "${workspaceFolder}/build/test/Debug/test.exe",
+            "name": "Test - Windows Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder}/build/test",
+        },
+    ]
+}

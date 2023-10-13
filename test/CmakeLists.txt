@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.0.0)
+
+set(CMAKE_CXX_STANDARD 17)
+
+add_executable(Test "src/main.cpp")
+
+target_include_directories(Test PRIVATE "../lib/include")
+target_link_libraries(Test PRIVATE EstEngineLib ${EstEngine})
