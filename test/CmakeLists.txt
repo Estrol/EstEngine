@@ -5,4 +5,5 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(Test "src/main.cpp")
 
 target_include_directories(Test PRIVATE "../lib/include")
+message("Linking: ${EstEngine}")
 target_link_libraries(Test PRIVATE EstEngineLib ${EstEngine})

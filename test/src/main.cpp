@@ -5,5 +5,5 @@
 int main()
 {
     Game game;
-    game.Run("Test", 1280, 720, false);
+    game.Run("Test", 1280, 1200, false);
 }

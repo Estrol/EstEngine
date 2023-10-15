@@ -36,7 +36,7 @@ foreach(shader IN LISTS SHADERS)
             --vn "__glsl_${out_string}" ${shader}
 
         RESULT_VARIABLE out 
-        OUTPUT_QUIET 
+        
     )
 
     if (out EQUAL 1)
@@ -65,7 +65,7 @@ add_library(EstEngineLib STATIC ${HEADERS}
     "src/Graphics/Backends/Vulkan/Volk/volk.cpp" 
 
     # OpenGL backends
-    # TODO
+    "src/Graphics/Backends/OpenGL/OpenGLBackend.cpp"
 
     # Audio
     "src/Audio/AudioEngine.cpp" 

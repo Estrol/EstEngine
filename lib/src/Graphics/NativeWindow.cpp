@@ -1,5 +1,6 @@
 #include <Exceptions/EstException.h>
 #include <Graphics/NativeWindow.h>
+#include <Graphics/Renderer.h>
 using namespace Graphics;
 
 NativeWindow *NativeWindow::s_Instance = nullptr;
@@ -20,11 +21,30 @@ void NativeWindow::Destroy()
     }
 }
 
-void NativeWindow::Init(std::string title, int width, int height, bool fullscreen)
+void NativeWindow::Init(std::string title, int width, int height, API graphics, bool fullscreen)
 {
-    Uint32 flags = SDL_WINDOW_VULKAN;
+    Uint32 flags = 0;
     if (fullscreen) {
         flags |= SDL_WINDOW_FULLSCREEN;
+    }
+
+    switch (graphics) {
+        case API::OpenGL:
+        {
+            flags |= SDL_WINDOW_OPENGL;
+            break;
+        }
+
+        case API::Vulkan:
+        {
+            flags |= SDL_WINDOW_VULKAN;
+            break;
+        }
+
+        default:
+        {
+            throw Exceptions::EstException("Unknown graphics API");
+        }
     }
 
     auto Window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, flags);
@@ -66,13 +86,13 @@ void NativeWindow::PumpEvents()
                 break;
         }
 
-        for (auto& callback : m_Callbacks) {
+        for (auto &callback : m_Callbacks) {
             callback(event);
         }
     }
 }
 
-void NativeWindow::AddSDLCallback(std::function<void(SDL_Event&)> callback)
+void NativeWindow::AddSDLCallback(std::function<void(SDL_Event &)> callback)
 {
     m_Callbacks.push_back(callback);
 }

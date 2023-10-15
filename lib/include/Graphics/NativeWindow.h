@@ -18,10 +18,12 @@ namespace Graphics
         }
     };
 
+    enum class API;
+
     class NativeWindow
     {
     public:
-        void Init(std::string title, int width, int height, bool fullscreen);
+        void Init(std::string title, int width, int height, API graphics, bool fullscreen);
 
         void PumpEvents();
         bool ShouldExit();

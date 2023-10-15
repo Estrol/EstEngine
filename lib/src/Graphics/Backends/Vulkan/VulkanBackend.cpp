@@ -3,8 +3,8 @@
 #include <Graphics/NativeWindow.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
-#include <vector>
 #include <algorithm>
+#include <vector>
 
 #include "vkinit.h"
 
@@ -40,7 +40,8 @@ void Vulkan::ReInit()
 
     try {
         bool result = InitSwapchain();
-        if (!result) return;
+        if (!result)
+            return;
 
         InitFramebuffers();
         InitCommands();
@@ -83,8 +84,6 @@ void Vulkan::CreateInstance()
                                        .require_api_version(1, 1, 0)
                                        .use_default_debug_messenger()
                                        .build();
-
-    
 
     if (!instance_builder_return) {
         throw Exceptions::EstException("Failed to create Vulkan instance");
@@ -627,7 +626,7 @@ void Vulkan::InitPipeline()
         binding_desc[0].stride = sizeof(Vertex);
         binding_desc[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-        VkVertexInputAttributeDescription attribute_desc[3] = {};
+        VkVertexInputAttributeDescription attribute_desc[5] = {};
         attribute_desc[0].location = 0;
         attribute_desc[0].binding = binding_desc[0].binding;
         attribute_desc[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -640,6 +639,14 @@ void Vulkan::InitPipeline()
         attribute_desc[2].binding = binding_desc[0].binding;
         attribute_desc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
         attribute_desc[2].offset = MY_OFFSETOF(Vertex, color);
+        attribute_desc[3].location = 3;
+        attribute_desc[3].binding = binding_desc[0].binding;
+        attribute_desc[3].format = VK_FORMAT_R32G32_SFLOAT;
+        attribute_desc[3].offset = MY_OFFSETOF(Vertex, scale);
+        attribute_desc[4].location = 4;
+        attribute_desc[4].binding = binding_desc[0].binding;
+        attribute_desc[4].format = VK_FORMAT_R32G32_SFLOAT;
+        attribute_desc[4].offset = MY_OFFSETOF(Vertex, translate);
 
         VkPipelineVertexInputStateCreateInfo vertex_info = {};
         vertex_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -864,7 +871,7 @@ void Vulkan::EndFrame()
 
     FlushQueue();
 
-    auto frame = GetCurrentFrame();
+    auto& frame = GetCurrentFrame();
     vkCmdEndRenderPass(frame.commandBuffer);
 
     auto result = vkEndCommandBuffer(frame.commandBuffer);
@@ -912,7 +919,7 @@ bool Vulkan::NeedReinit()
     return !m_SwapchainReady;
 }
 
-void Vulkan::Push(SubmitInfo& info)
+void Vulkan::Push(SubmitInfo &info)
 {
     submitInfos.push_back(info);
 }
@@ -921,31 +928,31 @@ void Vulkan::FlushQueue()
 {
     if (submitInfos.size() <= 0) {
         return;
-    } 
+    }
 
     if (!m_SwapchainReady) {
         submitInfos.clear();
         return;
     }
 
-    auto& frame = GetCurrentFrame();
+    auto &frame = GetCurrentFrame();
     if (!frame.isValid) {
         submitInfos.clear();
         return;
     }
 
     VkDeviceSize vertex_size = 0;
-	VkDeviceSize indices_size = 0;
-	for (auto& info : submitInfos) {
-		vertex_size += info.vertices.size() * sizeof(info.vertices[0]);
-		indices_size += info.indices.size() * sizeof(info.indices[0]);
-	}
+    VkDeviceSize indices_size = 0;
+    for (auto &info : submitInfos) {
+        vertex_size += info.vertices.size() * sizeof(info.vertices[0]);
+        indices_size += info.indices.size() * sizeof(info.indices[0]);
+    }
 
     vertex_size = std::clamp((uint64_t)vertex_size, (uint64_t)0, (uint64_t)m_Swapchain.maxVertexBufferSize);
     indices_size = std::clamp((uint64_t)indices_size, (uint64_t)0, (uint64_t)m_Swapchain.maxIndexBufferSize);
 
-    void* vertexPtr;
-    void* indicePtr;
+    void *vertexPtr;
+    void *indicePtr;
 
     auto result = vkMapMemory(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.memory, 0, vertex_size, 0, &vertexPtr);
     if (result != VK_SUCCESS) {
@@ -957,66 +964,72 @@ void Vulkan::FlushQueue()
         throw Exceptions::EstException("Failed to map GPU's index buffer");
     }
 
-    VkDeviceSize offset = 0;
-	for (auto& info : submitInfos) {
-		if (offset >= m_Swapchain.maxVertexBufferSize) {
-			continue;
-		}
+    auto rect = Graphics::NativeWindow::Get()->GetWindowSize();
+    float scale[2];
+    scale[0] = 2.0f / rect.Width;
+    scale[1] = 2.0f / rect.Height;
 
-		memcpy((char*)vertexPtr + offset, info.vertices.data(), info.vertices.size() * sizeof(info.vertices[0]));
-		offset += info.vertices.size() * sizeof(info.vertices[0]);
-	}
+    float translate[2];
+    translate[0] = -1.0f;
+    translate[1] = -1.0f;
+
+    for (auto& info :submitInfos) {
+        for (auto& vertex : info.vertices) {
+            vertex.scale = glm::vec2(scale[0], scale[1]);
+            vertex.translate = glm::vec2(translate[0], translate[1]);
+        }
+    }
+
+    VkDeviceSize offset = 0;
+    for (auto &info : submitInfos) {
+        if (offset >= m_Swapchain.maxVertexBufferSize) {
+            continue;
+        }
+
+        memcpy((char *)vertexPtr + offset, info.vertices.data(), info.vertices.size() * sizeof(info.vertices[0]));
+        offset += info.vertices.size() * sizeof(info.vertices[0]);
+    }
 
     offset = 0;
-	for (auto& info : submitInfos) {
-		memcpy((char*)indicePtr + offset, info.indices.data(), info.indices.size() * sizeof(info.indices[0]));
-		offset += info.indices.size() * sizeof(info.indices[0]);
-	}
+    for (auto &info : submitInfos) {
+        memcpy((char *)indicePtr + offset, info.indices.data(), info.indices.size() * sizeof(info.indices[0]));
+        offset += info.indices.size() * sizeof(info.indices[0]);
+    }
 
     vkUnmapMemory(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.memory);
     vkUnmapMemory(m_Vulkan.vkbDevice.device, m_Swapchain.indexBuffer.memory);
 
-    auto rect = Graphics::NativeWindow::Get()->GetWindowSize();
-
     VkViewport viewport = {};
-	viewport.x = 0;
-	viewport.y = 0;
-	viewport.width = (float)rect.Width;
-	viewport.height = (float)rect.Height;
-	viewport.maxDepth = 1.0f;
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = (float)rect.Width;
+    viewport.height = (float)rect.Height;
+    viewport.maxDepth = 1.0f;
 
     vkCmdSetViewport(frame.commandBuffer, 0, 1, &viewport);
 
     VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(frame.commandBuffer, 0, 1, &m_Swapchain.vertexBuffer.buffer, offsets);
-	vkCmdBindIndexBuffer(frame.commandBuffer, m_Swapchain.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
-
-    float scale[2];
-	scale[0] = 2.0f / rect.Width;
-	scale[1] = 2.0f / rect.Height;
-
-	float translate[2];
-	translate[0] = -1.0f;
-	translate[1] = -1.0f;
+    vkCmdBindVertexBuffers(frame.commandBuffer, 0, 1, &m_Swapchain.vertexBuffer.buffer, offsets);
+    vkCmdBindIndexBuffer(frame.commandBuffer, m_Swapchain.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 
     int currentVertIndex = 0; // vertex
-	int currentIndiIndex = 0; // indicies
+    int currentIndiIndex = 0; // indicies
 
-    for (auto& info : submitInfos) {
-		auto pipeline = m_Swapchain.pipelineLayout;
-		auto graphics = m_Swapchain.pipelines[info.fragmentType];
+    for (auto &info : submitInfos) {
+        auto pipeline = m_Swapchain.pipelineLayout;
+        auto graphics = m_Swapchain.pipelines[info.fragmentType];
 
-		vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 2, scale);
-		vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
+        //vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 2, scale);
+        //vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
 
-        VkDescriptorSet image = (VkDescriptorSet)(info.image != nullptr ? info.image : VK_NULL_HANDLE);
+        VkDescriptorSet image = (VkDescriptorSet)(info.image != 0 ? (void*)info.image : VK_NULL_HANDLE);
         uint32_t imageCount = 1;
         if (image == NULL) {
             imageCount = 0;
         }
 
-		vkCmdBindDescriptorSets(frame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline, 0, 1, &image, 0, nullptr);
-		vkCmdBindPipeline(frame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics);
+        vkCmdBindDescriptorSets(frame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline, 0, 1, &image, 0, nullptr);
+        vkCmdBindPipeline(frame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics);
 
         VkRect2D clip = {};
         clip.offset = {
@@ -1026,12 +1039,12 @@ void Vulkan::FlushQueue()
             (uint32_t)info.clipRect.Width, (uint32_t)info.clipRect.Height
         };
 
-		vkCmdSetScissor(frame.commandBuffer, 0, 1, &clip);
+        vkCmdSetScissor(frame.commandBuffer, 0, 1, &clip);
 
-		vkCmdDrawIndexed(frame.commandBuffer, (uint32_t)info.vertices.size(), 1, currentIndiIndex, currentVertIndex, 0);
-		currentVertIndex += (int)info.vertices.size();
-		currentIndiIndex += (int)info.indices.size();
-	}
+        vkCmdDrawIndexed(frame.commandBuffer, (uint32_t)info.vertices.size(), 1, currentIndiIndex, currentVertIndex, 0);
+        currentVertIndex += (int)info.vertices.size();
+        currentIndiIndex += (int)info.indices.size();
+    }
 
     submitInfos.clear();
 }

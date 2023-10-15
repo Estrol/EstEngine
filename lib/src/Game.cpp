@@ -29,11 +29,13 @@ void Game::Run(std::string title, int width, int height, bool fullscreen)
     }
 
     try {
+        Graphics::API api = Graphics::API::OpenGL;
+
         auto window = Graphics::NativeWindow::Get();
-        window->Init(title, width, height, fullscreen);
+        window->Init(title, width, height, api, fullscreen);
 
         auto renderer = Graphics::Renderer::Get();
-        renderer->Init(Graphics::API::Vulkan);
+        renderer->Init(api);
 
         auto engine = Audio::Engine::Get();
         engine->Init();
@@ -42,6 +44,10 @@ void Game::Run(std::string title, int width, int height, bool fullscreen)
         window->AddSDLCallback([=](SDL_Event& event) {
             inputs->Update(event);
         });
+
+        rect = std::make_unique<UI::Rectangle>();
+        rect->Position = UDim2::fromOffset(50, 50);
+        rect->Size = UDim2::fromOffset(150, 150);
 
         while(Tick()) {
             
@@ -66,6 +72,7 @@ bool Game::Tick()
     {
         auto doRender = renderer->BeginFrame();
         if (doRender) {
+            rect->Draw();
             renderer->EndFrame();
         }
     }

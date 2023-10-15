@@ -1,4 +1,5 @@
 #include "./Backends/Vulkan/VulkanBackend.h"
+#include "./Backends/OpenGL/OpenGLBackend.h"
 #include <Exceptions/EstException.h>
 #include <Graphics/Renderer.h>
 #include <iostream>
@@ -38,7 +39,8 @@ void Renderer::Init(API api)
 
         case API::OpenGL:
         {
-            throw Exceptions::EstException("OpenGL is not supported yet");
+            backend = new OpenGL();
+            break;
         }
 
         default:
@@ -62,7 +64,7 @@ API Renderer::GetAPI()
     return m_API;
 }
 
-void Renderer::Push(Graphics::Backends::SubmitInfo& info) 
+void Renderer::Push(Graphics::Backends::SubmitInfo &info)
 {
     m_Backend->Push(info);
 }

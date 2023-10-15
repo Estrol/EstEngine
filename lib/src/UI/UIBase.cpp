@@ -1,4 +1,4 @@
-#include "UIBase.h"
+#include <UI/UIBase.h>
 #include <Graphics/NativeWindow.h>
 #include <Graphics/Renderer.h>
 #include <algorithm>
@@ -24,12 +24,14 @@ Base::~Base()
 void Base::Draw()
 {
     clipRect = Graphics::NativeWindow::Get()->GetWindowSize();
+    OnDraw();
     DrawVertices();
 }
 
 void Base::Draw(Rect _clipRect)
 {
     clipRect = _clipRect;
+    OnDraw();
     DrawVertices();
 }
 
@@ -79,3 +81,6 @@ void Base::DrawVertices()
 
     renderer->Push(info);
 }
+
+void Base::OnDraw()
+{}
