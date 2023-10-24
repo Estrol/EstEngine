@@ -1,4 +1,4 @@
-#include <Screens/ScreenBase.h>
+#include <Screens/Base.h>
 using namespace Screens;
 
 void Base::Update(double delta)
@@ -6,6 +6,10 @@ void Base::Update(double delta)
 }
 
 void Base::Draw(double delta)
+{
+}
+
+void Base::Input(double delta)
 {
 }
 

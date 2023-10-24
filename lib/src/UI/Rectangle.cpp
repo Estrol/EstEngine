@@ -1,9 +1,21 @@
+#include <Graphics/Renderer.h>
 #include <UI/Rectangle.h>
 
 using namespace UI;
+using namespace Graphics;
 
 Rectangle::Rectangle() : Base()
 {
+    std::vector<char> pixels = {
+        (char)0x255, (char)0x255, (char)0x255, (char)0x255
+    };
+
+    auto image_ptr = Renderer::Get()->LoadTexture(
+        pixels.data(),
+        1,
+        1);
+
+    m_texture = std::unique_ptr<Graphics::Texture2D>(image_ptr);
 }
 
 void Rectangle::OnDraw()
@@ -16,10 +28,10 @@ void Rectangle::OnDraw()
     double x2 = x1 + AbsoluteSize.X;
     double y2 = y1 + AbsoluteSize.Y;
 
-    glm::vec2 uv1(0.0f, 0.0f);  // Top-left UV coordinate
-    glm::vec2 uv2(1.0f, 0.0f);  // Top-right UV coordinate
-    glm::vec2 uv3(1.0f, 1.0f);  // Bottom-right UV coordinate
-    glm::vec2 uv4(0.0f, 1.0f);  // Bottom-left UV coordinate
+    glm::vec2 uv1(0.0f, 0.0f); // Top-left UV coordinate
+    glm::vec2 uv2(1.0f, 0.0f); // Top-right UV coordinate
+    glm::vec2 uv3(1.0f, 1.0f); // Bottom-right UV coordinate
+    glm::vec2 uv4(0.0f, 1.0f); // Bottom-left UV coordinate
 
     if (m_vertices.size() != 6) {
         m_vertices.resize(6);
@@ -36,7 +48,7 @@ void Rectangle::OnDraw()
     shaderFragmentType = ShaderFragmentType::Solid;
 
     for (int i = 0; i < 6; i++) {
-        Vertex& vertex = m_vertices[i];
+        Vertex &vertex = m_vertices[i];
         vertex.SetColorRGB(color);
 
         switch (i) {

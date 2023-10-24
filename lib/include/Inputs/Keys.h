@@ -1,6 +1,7 @@
 #ifndef __KEYS_H_
 #define __KEYS_H_
 
+#include <SDL2/SDL_mouse.h>
 #include <SDL2/SDL_scancode.h>
 
 namespace Inputs {
@@ -130,26 +131,29 @@ namespace Inputs {
         MouseUp,
     };
 
-    struct MouseState {
+    struct MouseState
+    {
         double X;
         double Y;
 
         bool IsDown;
     };
 
-    struct KeyboardState {
+    struct KeyboardState
+    {
         Keys Key;
         bool IsDown;
     };
 
-    struct State {
+    struct State
+    {
         Type Type;
 
         union {
-            MouseState Mouse;
+            MouseState    Mouse;
             KeyboardState Keyboard;
         };
     };
-}
+} // namespace Inputs
 
 #endif

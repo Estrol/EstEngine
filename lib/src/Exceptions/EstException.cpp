@@ -6,6 +6,11 @@ EstException::EstException(const char* message)
 {
 }
 
+EstException::EstException(std::string message)
+    : m_Message(message.c_str())
+{
+}
+
 EstException::~EstException() throw()
 {
 }

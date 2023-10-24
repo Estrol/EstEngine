@@ -1,11 +1,13 @@
 #include "VulkanBackend.h"
 #include <Exceptions/EstException.h>
 #include <Graphics/NativeWindow.h>
+#define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 #include <algorithm>
 #include <vector>
 
+#include "VulkanDescriptor.h"
 #include "vkinit.h"
 
 #include "../../Shaders/image.spv.h"
@@ -29,6 +31,7 @@ void Vulkan::Init()
     InitPipeline();
 
     m_Initialized = true;
+    m_FrameBegin = false;
 }
 
 void Vulkan::ReInit()
@@ -55,8 +58,19 @@ void Vulkan::ReInit()
 void Graphics::Backends::Vulkan::Shutdown()
 {
     if (m_Initialized) {
+        vkDeviceWaitIdle(m_Vulkan.vkbDevice.device);
+
+        if (m_FrameBegin) {
+            __debugbreak();
+        }
+
+        for (auto &descriptor : m_Descriptors) {
+            DestroyDescriptor(descriptor.get(), false);
+        }
+
         m_PerFrameDeletionQueue.flush();
         m_SwapchainDeletionQueue.flush();
+        m_Descriptors.clear();
         m_DeletionQueue.flush();
 
         vkb::destroy_swapchain(m_Swapchain.swapchain);
@@ -338,17 +352,19 @@ void Vulkan::InitCommands()
     }
 
     VkCommandPoolCreateInfo uploadCommandPoolInfo = vkinit::command_pool_create_info(m_Vulkan.graphicsQueueFamily);
-    auto result = vkCreateCommandPool(m_Vulkan.vkbDevice.device, &uploadCommandPoolInfo, nullptr, &m_Swapchain.uploadContex.commandPool);
+    auto result = vkCreateCommandPool(m_Vulkan.vkbDevice.device, &uploadCommandPoolInfo, nullptr, &m_Swapchain.uploadContext.commandPool);
 
     if (result != VK_SUCCESS) {
         throw Exceptions::EstException("Failed to create upload command pool");
     }
 
-    m_SwapchainDeletionQueue.push_function([=]() { vkDestroyCommandPool(m_Vulkan.vkbDevice.device, m_Swapchain.uploadContex.commandPool, nullptr); });
+    m_SwapchainDeletionQueue.push_function([=]() {
+        vkDestroyCommandPool(m_Vulkan.vkbDevice.device, m_Swapchain.uploadContext.commandPool, nullptr);
+    });
 
-    VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(m_Swapchain.uploadContex.commandPool, 1);
+    VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(m_Swapchain.uploadContext.commandPool, 1);
 
-    result = vkAllocateCommandBuffers(m_Vulkan.vkbDevice.device, &cmdAllocInfo, &m_Swapchain.uploadContex.commandBuffer);
+    result = vkAllocateCommandBuffers(m_Vulkan.vkbDevice.device, &cmdAllocInfo, &m_Swapchain.uploadContext.commandBuffer);
 
     if (result != VK_SUCCESS) {
         throw Exceptions::EstException("Failed to allocate upload command buffer");
@@ -361,69 +377,7 @@ void Vulkan::InitCommands()
     memset(&m_Swapchain.vertexBuffer, 0, sizeof(m_Swapchain.vertexBuffer));
     memset(&m_Swapchain.indexBuffer, 0, sizeof(m_Swapchain.indexBuffer));
 
-    {
-        VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = MAX_VERTEX_BUFFER_SIZE;
-        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        result = vkCreateBuffer(m_Vulkan.vkbDevice.device, &bufferInfo, nullptr, &m_Swapchain.vertexBuffer.buffer);
-        if (result != VK_SUCCESS) {
-            throw Exceptions::EstException("Failed to create vertex buffer");
-        }
-
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.buffer, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = vkinit::find_memory_type(
-            m_Vulkan.vkbDevice.physical_device,
-            memRequirements.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        result = vkAllocateMemory(m_Vulkan.vkbDevice.device, &allocInfo, nullptr, &m_Swapchain.vertexBuffer.memory);
-
-        if (result != VK_SUCCESS) {
-            throw Exceptions::EstException("Failed to allocate vertex buffer memory");
-        }
-
-        vkBindBufferMemory(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.buffer, m_Swapchain.vertexBuffer.memory, 0);
-    }
-
-    {
-        VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = MAX_INDEX_BUFFER_SIZE;
-        bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        result = vkCreateBuffer(m_Vulkan.vkbDevice.device, &bufferInfo, nullptr, &m_Swapchain.indexBuffer.buffer);
-        if (result != VK_SUCCESS) {
-            throw Exceptions::EstException("Failed to create index buffer");
-        }
-
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(m_Vulkan.vkbDevice.device, m_Swapchain.indexBuffer.buffer, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = vkinit::find_memory_type(
-            m_Vulkan.vkbDevice.physical_device,
-            memRequirements.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        result = vkAllocateMemory(m_Vulkan.vkbDevice.device, &allocInfo, nullptr, &m_Swapchain.indexBuffer.memory);
-
-        if (result != VK_SUCCESS) {
-            throw Exceptions::EstException("Failed to allocate index buffer memory");
-        }
-
-        vkBindBufferMemory(m_Vulkan.vkbDevice.device, m_Swapchain.indexBuffer.buffer, m_Swapchain.indexBuffer.memory, 0);
-    }
+    ResizeBuffer(MAX_VERTEX_BUFFER_SIZE, MAX_INDEX_BUFFER_SIZE);
 
     m_Swapchain.maxVertexBufferSize = MAX_VERTEX_BUFFER_SIZE;
     m_Swapchain.maxIndexBufferSize = MAX_INDEX_BUFFER_SIZE;
@@ -467,13 +421,13 @@ void Vulkan::InitSyncStructures()
             vkDestroySemaphore(m_Vulkan.vkbDevice.device, m_Swapchain.frames[i].renderSemaphore, nullptr); });
     }
 
-    auto result = vkCreateFence(m_Vulkan.vkbDevice.device, &fenceCreateInfo, nullptr, &m_Swapchain.uploadContex.renderFence);
+    auto result = vkCreateFence(m_Vulkan.vkbDevice.device, &fenceCreateInfo, nullptr, &m_Swapchain.uploadContext.renderFence);
 
     if (result != VK_SUCCESS) {
         throw Exceptions::EstException("Failed to create upload fence");
     }
 
-    m_SwapchainDeletionQueue.push_function([=]() { vkDestroyFence(m_Vulkan.vkbDevice.device, m_Swapchain.uploadContex.renderFence, nullptr); });
+    m_SwapchainDeletionQueue.push_function([=]() { vkDestroyFence(m_Vulkan.vkbDevice.device, m_Swapchain.uploadContext.renderFence, nullptr); });
 }
 
 void Vulkan::InitDescriptors()
@@ -487,7 +441,7 @@ void Vulkan::InitDescriptors()
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.flags = 0;
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     poolInfo.maxSets = 10;
     poolInfo.poolSizeCount = (uint32_t)sizes.size();
     poolInfo.pPoolSizes = sizes.data();
@@ -513,6 +467,11 @@ void Vulkan::InitDescriptors()
     if (result != VK_SUCCESS) {
         throw Exceptions::EstException("Failed to create descriptor set layout");
     }
+
+    m_DeletionQueue.push_function([=] {
+        vkDestroyDescriptorSetLayout(m_Vulkan.vkbDevice.device, m_Vulkan.descriptorSetLayout, nullptr);
+        vkDestroyDescriptorPool(m_Vulkan.vkbDevice.device, m_Vulkan.descriptorPool, nullptr);
+    });
 }
 
 void Vulkan::InitShaders()
@@ -626,7 +585,7 @@ void Vulkan::InitPipeline()
         binding_desc[0].stride = sizeof(Vertex);
         binding_desc[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-        VkVertexInputAttributeDescription attribute_desc[5] = {};
+        VkVertexInputAttributeDescription attribute_desc[3] = {};
         attribute_desc[0].location = 0;
         attribute_desc[0].binding = binding_desc[0].binding;
         attribute_desc[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -639,14 +598,6 @@ void Vulkan::InitPipeline()
         attribute_desc[2].binding = binding_desc[0].binding;
         attribute_desc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
         attribute_desc[2].offset = MY_OFFSETOF(Vertex, color);
-        attribute_desc[3].location = 3;
-        attribute_desc[3].binding = binding_desc[0].binding;
-        attribute_desc[3].format = VK_FORMAT_R32G32_SFLOAT;
-        attribute_desc[3].offset = MY_OFFSETOF(Vertex, scale);
-        attribute_desc[4].location = 4;
-        attribute_desc[4].binding = binding_desc[0].binding;
-        attribute_desc[4].format = VK_FORMAT_R32G32_SFLOAT;
-        attribute_desc[4].offset = MY_OFFSETOF(Vertex, translate);
 
         VkPipelineVertexInputStateCreateInfo vertex_info = {};
         vertex_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -657,7 +608,8 @@ void Vulkan::InitPipeline()
 
         VkPipelineInputAssemblyStateCreateInfo ia_info = {};
         ia_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        ia_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        ia_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+        ia_info.primitiveRestartEnable = VK_TRUE;
 
         VkPipelineViewportStateCreateInfo viewport_info = {};
         viewport_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -738,26 +690,30 @@ void Vulkan::InitPipeline()
     m_SwapchainDeletionQueue.push_function([=] {
         vkDestroyPipelineLayout(m_Vulkan.vkbDevice.device, m_Swapchain.pipelineLayout, nullptr);
     });
+
+    m_DeletionQueue.push_function([=] {
+        vkDestroyDescriptorSetLayout(m_Vulkan.vkbDevice.device, image_descriptor_layout, nullptr);
+    });
 }
 
 void Vulkan::ImmediateSubmit(std::function<void(VkCommandBuffer)> &&function)
 {
     VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    auto result = vkBeginCommandBuffer(m_Swapchain.uploadContex.commandBuffer, &cmdBeginInfo);
+    auto result = vkBeginCommandBuffer(m_Swapchain.uploadContext.commandBuffer, &cmdBeginInfo);
 
     if (result != VK_SUCCESS) {
         throw Exceptions::EstException("Failed to begin command buffer");
     }
 
-    function(m_Swapchain.uploadContex.commandBuffer);
+    function(m_Swapchain.uploadContext.commandBuffer);
 
-    result = vkEndCommandBuffer(m_Swapchain.uploadContex.commandBuffer);
+    result = vkEndCommandBuffer(m_Swapchain.uploadContext.commandBuffer);
 
     if (result != VK_SUCCESS) {
         throw Exceptions::EstException("Failed to end command buffer");
     }
 
-    VkSubmitInfo submit = vkinit::submit_info(&m_Swapchain.uploadContex.commandBuffer);
+    VkSubmitInfo submit = vkinit::submit_info(&m_Swapchain.uploadContext.commandBuffer);
 
     result = vkQueueSubmit(m_Vulkan.graphicsQueue, 1, &submit, VK_NULL_HANDLE);
 
@@ -765,10 +721,10 @@ void Vulkan::ImmediateSubmit(std::function<void(VkCommandBuffer)> &&function)
         throw Exceptions::EstException("Failed to submit queue");
     }
 
-    vkWaitForFences(m_Vulkan.vkbDevice.device, 1, &m_Swapchain.uploadContex.renderFence, true, 9999999999);
-    vkResetFences(m_Vulkan.vkbDevice.device, 1, &m_Swapchain.uploadContex.renderFence);
+    vkWaitForFences(m_Vulkan.vkbDevice.device, 1, &m_Swapchain.uploadContext.renderFence, true, 9999999999);
+    vkResetFences(m_Vulkan.vkbDevice.device, 1, &m_Swapchain.uploadContext.renderFence);
 
-    vkResetCommandPool(m_Vulkan.vkbDevice.device, m_Swapchain.uploadContex.commandPool, 0);
+    vkResetCommandPool(m_Vulkan.vkbDevice.device, m_Swapchain.uploadContext.commandPool, 0);
 }
 
 VulkanFrame &Vulkan::GetCurrentFrame()
@@ -859,6 +815,7 @@ bool Vulkan::BeginFrame()
     rpInfo.clearValueCount = 2;
 
     vkCmdBeginRenderPass(frame.commandBuffer, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    m_FrameBegin = true;
 
     return true;
 }
@@ -871,7 +828,7 @@ void Vulkan::EndFrame()
 
     FlushQueue();
 
-    auto& frame = GetCurrentFrame();
+    auto &frame = GetCurrentFrame();
     vkCmdEndRenderPass(frame.commandBuffer);
 
     auto result = vkEndCommandBuffer(frame.commandBuffer);
@@ -912,6 +869,7 @@ void Vulkan::EndFrame()
     }
 
     m_CurrentFrame++;
+    m_FrameBegin = false;
 }
 
 bool Vulkan::NeedReinit()
@@ -941,6 +899,10 @@ void Vulkan::FlushQueue()
         return;
     }
 
+    std::sort(submitInfos.begin(), submitInfos.end(), [](SubmitInfo &a, SubmitInfo &b) {
+        return a.zIndex < b.zIndex;
+    });
+
     VkDeviceSize vertex_size = 0;
     VkDeviceSize indices_size = 0;
     for (auto &info : submitInfos) {
@@ -948,8 +910,9 @@ void Vulkan::FlushQueue()
         indices_size += info.indices.size() * sizeof(info.indices[0]);
     }
 
-    vertex_size = std::clamp((uint64_t)vertex_size, (uint64_t)0, (uint64_t)m_Swapchain.maxVertexBufferSize);
-    indices_size = std::clamp((uint64_t)indices_size, (uint64_t)0, (uint64_t)m_Swapchain.maxIndexBufferSize);
+    if (vertex_size >= m_Swapchain.maxVertexBufferSize || indices_size >= m_Swapchain.maxIndexBufferSize) {
+        ResizeBuffer(vertex_size, indices_size);
+    }
 
     void *vertexPtr;
     void *indicePtr;
@@ -972,13 +935,6 @@ void Vulkan::FlushQueue()
     float translate[2];
     translate[0] = -1.0f;
     translate[1] = -1.0f;
-
-    for (auto& info :submitInfos) {
-        for (auto& vertex : info.vertices) {
-            vertex.scale = glm::vec2(scale[0], scale[1]);
-            vertex.translate = glm::vec2(translate[0], translate[1]);
-        }
-    }
 
     VkDeviceSize offset = 0;
     for (auto &info : submitInfos) {
@@ -1019,10 +975,10 @@ void Vulkan::FlushQueue()
         auto pipeline = m_Swapchain.pipelineLayout;
         auto graphics = m_Swapchain.pipelines[info.fragmentType];
 
-        //vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 2, scale);
-        //vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
+        vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 2, scale);
+        vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
 
-        VkDescriptorSet image = (VkDescriptorSet)(info.image != 0 ? (void*)info.image : VK_NULL_HANDLE);
+        VkDescriptorSet image = (VkDescriptorSet)(info.image != 0 ? (void *)info.image : VK_NULL_HANDLE);
         uint32_t imageCount = 1;
         if (image == NULL) {
             imageCount = 0;
@@ -1047,6 +1003,145 @@ void Vulkan::FlushQueue()
     }
 
     submitInfos.clear();
+}
+
+void Vulkan::ResizeBuffer(VkDeviceSize vertices, VkDeviceSize indicies)
+{
+    auto result = VK_SUCCESS;
+
+    if (vertices > m_Swapchain.maxVertexBufferSize) {
+        m_Swapchain.maxVertexBufferSize = (uint32_t)vertices;
+    }
+
+    if (indicies > m_Swapchain.maxIndexBufferSize) {
+        m_Swapchain.maxIndexBufferSize = (uint32_t)indicies;
+    }
+
+    if (m_Swapchain.vertexBuffer.buffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.buffer, nullptr);
+        vkFreeMemory(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.memory, nullptr);
+    }
+
+    if (m_Swapchain.indexBuffer.buffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(m_Vulkan.vkbDevice.device, m_Swapchain.indexBuffer.buffer, nullptr);
+        vkFreeMemory(m_Vulkan.vkbDevice.device, m_Swapchain.indexBuffer.memory, nullptr);
+    }
+
+    {
+        VkBufferCreateInfo bufferInfo = {};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = vertices;
+        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        result = vkCreateBuffer(m_Vulkan.vkbDevice.device, &bufferInfo, nullptr, &m_Swapchain.vertexBuffer.buffer);
+        if (result != VK_SUCCESS) {
+            throw Exceptions::EstException("Failed to create vertex buffer");
+        }
+
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.buffer, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex = vkinit::find_memory_type(
+            m_Vulkan.vkbDevice.physical_device,
+            memRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        result = vkAllocateMemory(m_Vulkan.vkbDevice.device, &allocInfo, nullptr, &m_Swapchain.vertexBuffer.memory);
+
+        if (result != VK_SUCCESS) {
+            throw Exceptions::EstException("Failed to allocate vertex buffer memory");
+        }
+
+        vkBindBufferMemory(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.buffer, m_Swapchain.vertexBuffer.memory, 0);
+    }
+
+    {
+        VkBufferCreateInfo bufferInfo = {};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = indicies;
+        bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        result = vkCreateBuffer(m_Vulkan.vkbDevice.device, &bufferInfo, nullptr, &m_Swapchain.indexBuffer.buffer);
+        if (result != VK_SUCCESS) {
+            throw Exceptions::EstException("Failed to create index buffer");
+        }
+
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(m_Vulkan.vkbDevice.device, m_Swapchain.indexBuffer.buffer, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex = vkinit::find_memory_type(
+            m_Vulkan.vkbDevice.physical_device,
+            memRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        result = vkAllocateMemory(m_Vulkan.vkbDevice.device, &allocInfo, nullptr, &m_Swapchain.indexBuffer.memory);
+
+        if (result != VK_SUCCESS) {
+            throw Exceptions::EstException("Failed to allocate index buffer memory");
+        }
+
+        vkBindBufferMemory(m_Vulkan.vkbDevice.device, m_Swapchain.indexBuffer.buffer, m_Swapchain.indexBuffer.memory, 0);
+    }
+}
+
+VulkanDescriptor *Vulkan::CreateDescriptor()
+{
+    auto descriptor = std::make_unique<VulkanDescriptor>();
+    descriptor->Id = ++m_DescriptorId;
+
+    m_Descriptors.push_back(std::move(descriptor));
+    return m_Descriptors.back().get();
+}
+
+void Vulkan::DestroyDescriptor(VulkanDescriptor *descriptor, bool _delete)
+{
+    auto device = m_Vulkan.vkbDevice.device;
+    auto descriptorPool = m_Vulkan.descriptorPool;
+    auto uploadBufferMemory = descriptor->UploadBufferMemory;
+    auto uploadBuffer = descriptor->UploadBuffer;
+    auto sampler = descriptor->Sampler;
+    auto imageView = descriptor->ImageView;
+    auto image = descriptor->Image;
+    auto imageMemory = descriptor->ImageMemory;
+    auto vkId = descriptor->VkId;
+
+    m_PerFrameDeletionQueue.push_function([=] {
+        vkFreeMemory(device, uploadBufferMemory, nullptr);
+        vkDestroyBuffer(device, uploadBuffer, nullptr);
+        vkDestroySampler(device, sampler, nullptr);
+        vkDestroyImageView(device, imageView, nullptr);
+        vkDestroyImage(device, image, nullptr);
+        vkFreeMemory(device, imageMemory, nullptr);
+        vkFreeDescriptorSets(device, descriptorPool, 1, &vkId);
+    });
+
+    auto it = std::find_if(m_Descriptors.begin(), m_Descriptors.end(), [descriptor](auto &item) {
+        return item.get()->Id == descriptor->Id;
+    });
+
+    if (_delete) {
+        if (it != m_Descriptors.end()) {
+            m_Descriptors.erase(it);
+        }
+    }
+}
+
+VulkanObject *Vulkan::GetVulkanObject()
+{
+    return &m_Vulkan;
+}
+
+VulkanSwapChain *Vulkan::GetSwapchain()
+{
+    return &m_Swapchain;
 }
 
 void Vulkan::ImGui_Init()

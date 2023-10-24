@@ -15,9 +15,10 @@ BraceWrapping:
   AfterCaseLabel: true
   BeforeElse: false
   IndentBraces: false
-AccessModifierOffset: -2
+AccessModifierOffset: -4
 NamespaceIndentation: All
 AllowShortIfStatementsOnASingleLine: false
 ArrayInitializerAlignmentStyle: Left
 IndentCaseLabels: true
 ColumnLimit: 0
+AlignConsecutiveDeclarations: true

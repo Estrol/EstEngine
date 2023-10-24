@@ -9,5 +9,14 @@
             "args": [],
             "cwd": "${workspaceFolder}/build/test",
         },
+        {
+            "program": "${workspaceFolder}/build/test/Debug/test.exe",
+            "name": "Test - Windows Debug (Build)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder}/build/test",
+            "preLaunchTask": "cmake-build"
+        }
     ]
 }

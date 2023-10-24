@@ -3,9 +3,11 @@
 
 #include <deque>
 #include <functional>
+#include <memory>
 #include <map>
 
 #include "./Volk/volk.h"
+#include "VulkanDescriptor.h"
 #include "./VulkanBootstrap/VkBootstrap.h"
 #include <Graphics/GraphicsBackendBase.h>
 
@@ -73,7 +75,7 @@ namespace Graphics {
             std::map<ShaderFragmentType, VkPipeline> pipelines;
 
             std::vector<VulkanFrame> frames;
-            VulkanFrame uploadContex;
+            VulkanFrame uploadContext;
 
             uint32_t maxVertexBufferSize;
             uint32_t maxIndexBufferSize;
@@ -112,6 +114,15 @@ namespace Graphics {
 
             virtual void Push(SubmitInfo& info) override;
 
+            /* Internal */
+            VulkanDescriptor* CreateDescriptor();
+			void DestroyDescriptor(VulkanDescriptor* descriptor, bool _delete = true);
+
+            VulkanObject* GetVulkanObject();
+            VulkanSwapChain* GetSwapchain();
+
+            void ImmediateSubmit(std::function<void(VkCommandBuffer)>&& function);
+
         private:
             void CreateInstance();
             void CreateRenderpass();
@@ -124,7 +135,7 @@ namespace Graphics {
             bool InitSwapchain();
 
             void FlushQueue();
-            void ImmediateSubmit(std::function<void(VkCommandBuffer)> &&function);
+            void ResizeBuffer(VkDeviceSize vertices, VkDeviceSize indices);
             VulkanFrame &GetCurrentFrame();
             VulkanFrame &GetLastFrame();
 
@@ -142,10 +153,16 @@ namespace Graphics {
 
             bool m_SwapchainReady;
             bool m_Initialized;
+            bool m_FrameBegin;
+
             uint32_t m_CurrentFrame = 0;
 
             // Pending submit queue
             std::vector<SubmitInfo> submitInfos;
+
+            // Descriptor, for auto cleanup
+            std::vector<std::unique_ptr<VulkanDescriptor>> m_Descriptors;
+            uint32_t m_DescriptorId = 0;
         };
     } // namespace Backends
 } // namespace Graphics

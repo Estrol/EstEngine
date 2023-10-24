@@ -4,7 +4,7 @@ layout(location = 0) in vec2 aPosition;
 layout(location = 1) in vec2 aTexCoord;
 layout(location = 2) in vec4 aColor;
 
-layout(set = 0, binding = 0) uniform uPushConstant 
+layout(push_constant) uniform uPushConstant 
 { 
     vec2 uScale; 
     vec2 uTranslate; 

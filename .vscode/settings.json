@@ -90,6 +90,7 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "*.ipp": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "coroutine": "cpp"
     },
 }

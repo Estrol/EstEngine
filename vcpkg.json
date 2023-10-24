@@ -20,6 +20,18 @@
       {
         "name": "soundtouch"
       },
+      {
+        "name": "vulkan-headers"
+      },
+      {
+        "name": "spirv-cross"
+      },
+      {
+        "name": "lodepng"
+      },
+      {
+        "name": "freetype"
+      }
     ],
     "overrides": [
       {

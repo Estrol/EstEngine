@@ -54,9 +54,15 @@ add_library(EstEngineLib STATIC ${HEADERS}
     "src/Graphics/NativeWindow.cpp" 
     "src/Graphics/Renderer.cpp" 
 
+    # Screens
+    "src/Screens/Base.cpp" 
+    "src/Screens/Manager.cpp"
+
     # UI
     "src/UI/UIBase.cpp" 
     "src/UI/Rectangle.cpp" 
+    "src/UI/Image.cpp" 
+    "src/UI/Text.cpp" 
 
     # Vulkan backends
     "src/Graphics/Backends/Vulkan/VulkanBackend.cpp" 
@@ -64,8 +70,14 @@ add_library(EstEngineLib STATIC ${HEADERS}
     "src/Graphics/Backends/Vulkan/VulkanBootstrap/VkBootstrap.cpp" 
     "src/Graphics/Backends/Vulkan/Volk/volk.cpp" 
 
+    # Vulkan image backends
+    "src/Graphics/Backends/Vulkan/VulkanTexture2D.cpp" 
+
     # OpenGL backends
     "src/Graphics/Backends/OpenGL/OpenGLBackend.cpp"
+
+    # OpenGl image backends
+    "src/Graphics/Backends/OpenGL/OpenGlTexture2D.cpp"
 
     # Audio
     "src/Audio/AudioEngine.cpp" 
@@ -81,6 +93,17 @@ add_library(EstEngineLib STATIC ${HEADERS}
     # Inputs
     "src/Inputs/Manager.cpp" 
 
+    # Threads
+    "src/Threads/Thread.cpp" 
+    "src/Threads/TimeWatch.cpp"
+
+    # Fonts
+    "src/Fonts/FontManager.cpp"
+    "src/Fonts/Platform/Win32.cpp"
+    "src/Fonts/Platform/Linux.cpp"
+
     # Misc
     "src/Exceptions/EstException.cpp" 
+    "src/Misc/Filesystem.cpp"
+    "src/Graphics/Utils/stb_image.cpp"
 )

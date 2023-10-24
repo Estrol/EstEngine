@@ -10,13 +10,14 @@ namespace Screens {
 
         virtual void Update(double delta);
         virtual void Draw(double delta);
-        
+        virtual void Input(double delta);
+
         virtual void OnKeyDown();
         virtual void OnKeyUp();
 
         virtual bool Attach();
         virtual bool Detach();
     };
-}
+} // namespace Screens
 
 #endif

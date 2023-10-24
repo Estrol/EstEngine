@@ -2,12 +2,18 @@
 #define __Base_H_
 
 #include <Graphics/GraphicsBackendBase.h>
+#include <Graphics/GraphicsTexture2D.h>
 #include <Graphics/Utils/Rect.h>
 #include <Math/Color3.h>
 #include <Math/UDim2.h>
 #include <Math/Vector2.h>
 
 namespace UI {
+    enum class RenderMode {
+        Normal,
+        Batches,
+    };
+
     class Base
     {
       public:
@@ -36,13 +42,20 @@ namespace UI {
 
       protected:
         virtual void OnDraw();
+        void InsertToBatch();
+        void RotateVertex();
 
         Rect clipRect = {};
-        void* image;
         Graphics::Backends::ShaderFragmentType shaderFragmentType;
 
         std::vector<Graphics::Backends::Vertex> m_vertices;
         std::vector<uint16_t> m_indices;
+
+        std::unique_ptr<Graphics::Texture2D> m_texture;
+        Graphics::Texture2D *m_texturePtr = nullptr;
+        RenderMode m_renderMode = RenderMode::Normal;
+
+        std::vector<Graphics::Backends::SubmitInfo> m_batches;
 
       private:
         void DrawVertices();

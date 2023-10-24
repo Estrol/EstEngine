@@ -10,12 +10,12 @@ Color3::Color3(float r, float g, float b)
     B = std::clamp(b, 0.0f, 1.0f);
 }
 
-Color3 Color3::FromRGB(float r, float g, float b)
+Color3 Color3::fromRGB(float r, float g, float b)
 {
     return { r / 255.0f, g / 255.0f, b / 255.0f };
 }
 
-Color3 Color3::FromHSV(int hue, int saturnation, int value)
+Color3 Color3::fromHSV(int hue, int saturnation, int value)
 {
     float R, G, B;
 
@@ -59,14 +59,14 @@ Color3 Color3::FromHSV(int hue, int saturnation, int value)
     return { R, G, B };
 }
 
-Color3 Color3::FromHex(std::string hexValue)
+Color3 Color3::fromHex(std::string hexValue)
 {
     if (hexValue[0] == '#') {
         hexValue = hexValue.substr(1);
     }
 
-    if (hexValue.size() == 3) {
-        hexValue = hexValue[0] + hexValue[0] + hexValue[1] + hexValue[1] + hexValue[2] + hexValue[2];
+    if (hexValue.size() == 8) {
+        hexValue = hexValue.substr(2);
     }
 
     if (hexValue.size() != 6) {

@@ -1,5 +1,7 @@
-#include "./Backends/Vulkan/VulkanBackend.h"
 #include "./Backends/OpenGL/OpenGLBackend.h"
+#include "./Backends/OpenGL/OpenGLTexture2D.h"
+#include "./Backends/Vulkan/VulkanBackend.h"
+#include "./Backends/Vulkan/VulkanTexture2D.h"
 #include <Exceptions/EstException.h>
 #include <Graphics/Renderer.h>
 #include <iostream>
@@ -23,11 +25,20 @@ void Renderer::Destroy()
     }
 }
 
-void Renderer::Init(API api)
+Renderer::~Renderer()
+{
+    if (m_Backend) {
+        m_Backend->Shutdown();
+        delete m_Backend;
+    }
+}
+
+void Renderer::Init(API api, TextureSamplerInfo sampler)
 {
     using namespace Backends;
 
     m_API = api;
+    m_Sampler = sampler;
 
     Base *backend = nullptr;
     switch (api) {
@@ -100,4 +111,73 @@ void Renderer::EndFrame()
 
     m_onFrame = false;
     m_Backend->EndFrame();
+}
+
+Texture2D *Renderer::LoadTexture(std::filesystem::path path)
+{
+    Texture2D *texture = nullptr;
+
+    switch (GetAPI()) {
+        case API::Vulkan:
+        {
+            texture = new VKTexture2D(m_Sampler);
+            break;
+        }
+
+        case API::OpenGL:
+        {
+            texture = new GLTexture2D(m_Sampler);
+            break;
+        }
+    }
+
+    texture->Load(path);
+
+    return texture;
+}
+
+Texture2D *Renderer::LoadTexture(const char *buf, size_t size)
+{
+    Texture2D *texture = nullptr;
+
+    switch (GetAPI()) {
+        case API::Vulkan:
+        {
+            texture = new VKTexture2D(m_Sampler);
+            break;
+        }
+
+        case API::OpenGL:
+        {
+            texture = new GLTexture2D(m_Sampler);
+            break;
+        }
+    }
+
+    texture->Load(buf, size);
+
+    return texture;
+}
+
+Texture2D *Renderer::LoadTexture(const char *pixbuf, uint32_t width, uint32_t height)
+{
+    Texture2D *texture = nullptr;
+
+    switch (GetAPI()) {
+        case API::Vulkan:
+        {
+            texture = new VKTexture2D(m_Sampler);
+            break;
+        }
+
+        case API::OpenGL:
+        {
+            texture = new GLTexture2D(m_Sampler);
+            break;
+        }
+    }
+
+    texture->Load(pixbuf, width, height);
+
+    return texture;
 }

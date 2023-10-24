@@ -12,7 +12,6 @@ However the following features are already implemented:
     - Support Audio stream and sample
 - Graphics
     - Vulkan
-    - OpenGL (soon:tm:)
 - Input
     - Keyboard
     - Mouse

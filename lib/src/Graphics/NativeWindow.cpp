@@ -62,7 +62,15 @@ NativeWindow::~NativeWindow()
 
 Rect NativeWindow::GetWindowSize()
 {
-    return m_WindowRect;
+    Rect rc = {};
+    SDL_GetWindowSize(m_Window.get(), &rc.Width, &rc.Height);
+
+    if (SDL_GetWindowFlags(m_Window.get()) & SDL_WINDOW_MINIMIZED) {
+        rc.Width = 0;
+        rc.Height = 0;
+    }
+
+    return rc;
 }
 
 void NativeWindow::SetWindowSize(Rect size)

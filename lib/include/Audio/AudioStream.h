@@ -21,6 +21,10 @@ namespace Audio {
         // Used for store sample pointer data
         const char* Pointer;
         size_t Size;
+
+        // Temporary buffer for processing
+        double AudioRate = 1.0;
+        std::vector<float> TempBuffer;
     };
 
     class Stream

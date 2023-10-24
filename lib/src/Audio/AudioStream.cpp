@@ -77,30 +77,26 @@ void data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uin
     }
 
     // HACK!!
-    AudioData *pDecoder = (AudioData *)pEngine->pProcessUserData;
+    AudioData *pData = (AudioData *)pEngine->pProcessUserData;
 
-    memset(pOutput, 0, frameCount * pDecoder->Decoder.outputChannels);
-
-    if (pDecoder->Pitch || !pDecoder->Playing) {
+    if (pData->Pitch) {
         ma_engine_read_pcm_frames(pEngine, pOutput, frameCount, nullptr);
-    }
-    else {
-        const ma_uint64 sampleCountToRead = frameCount * pDecoder->Decoder.outputChannels;
+    } else {
+        ma_uint64 frameToRead = frameCount;
+        ma_uint64 channelFrameToRead = frameToRead * pData->Decoder.outputChannels;
 
-        std::vector<SAMPLETYPE> sample(sampleCountToRead);
+        if (pData->TempBuffer.size() < channelFrameToRead) {
+            pData->TempBuffer.resize(channelFrameToRead);
+        }
+
         ma_uint64 sampleReaded = 0;
+        auto result = ma_engine_read_pcm_frames(pEngine, pData->TempBuffer.data(), frameToRead, &sampleReaded);
 
-        auto result = ma_engine_read_pcm_frames(pEngine, sample.data(), frameCount, &sampleReaded);
-        pDecoder->SoundTouch->putSamples(sample.data(), sampleReaded);
+        if (result == MA_SUCCESS && sampleReaded >= 0) {
+            pData->SoundTouch->putSamples(pData->TempBuffer.data(), (uint)sampleReaded);
+        }
 
-        SAMPLETYPE* outputSamples = (SAMPLETYPE*)pOutput;
-        pDecoder->SoundTouch->receiveSamples(outputSamples, frameCount);
-    }
-
-    if (ma_sound_at_end(&pDecoder->Sound)) {
-        ma_sound_stop(&pDecoder->Sound);
-
-        pDecoder->Playing = false;
+        pData->SoundTouch->receiveSamples((SAMPLETYPE*)pOutput, frameCount);
     }
 }
 
@@ -185,6 +181,7 @@ void Stream::Seek(float miliseconds)
 {
     uint32_t position = static_cast<uint32_t>(miliseconds * Data.Decoder.outputSampleRate);
 
+    Data.SoundTouch->clear();
     ma_sound_seek_to_pcm_frame(&Data.Sound, position);
 }
 
@@ -215,8 +212,7 @@ void Stream::SetPitch(bool enable)
 
 void Stream::SetRate(float pitch)
 {
-    auto rate = Data.Decoder.outputSampleRate;
-    Data.SoundTouch->setSampleRate(rate);
+    Data.AudioRate = pitch;
 
     ma_sound_set_pitch(&Data.Sound, pitch);
     Data.SoundTouch->setPitch(1 / pitch);
