@@ -1,7 +1,7 @@
-#include <Inputs/Manager.h>
+#include <Inputs/InputManager.h>
 using namespace Inputs;
 
-Manager* Manager::Instance = nullptr;
+Manager *Manager::Instance = nullptr;
 
 Manager::Manager()
 {
@@ -13,7 +13,7 @@ Manager::~Manager()
 {
 }
 
-Manager* Manager::Get()
+Manager *Manager::Get()
 {
     if (Instance == nullptr) {
         Instance = new Manager();
@@ -30,34 +30,34 @@ void Manager::Destroy()
     }
 }
 
-void Manager::Update(SDL_Event& event)
+void Manager::Update(SDL_Event &event)
 {
     switch (event.type) {
-    case SDL_KEYDOWN:
-    case SDL_KEYUP:
-        HandleKeyEvent(event);
-        break;
-    case SDL_MOUSEBUTTONDOWN:
-    case SDL_MOUSEBUTTONUP:
-        HandleMouseEvent(event);
-        break;
-    case SDL_MOUSEMOTION:
-        HandleMouseMotionEvent(event);
-        break;
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+            HandleKeyEvent(event);
+            break;
+        case SDL_MOUSEBUTTONDOWN:
+        case SDL_MOUSEBUTTONUP:
+            HandleMouseEvent(event);
+            break;
+        case SDL_MOUSEMOTION:
+            HandleMouseMotionEvent(event);
+            break;
     }
 }
 
-void Manager::HandleKeyEvent(SDL_Event& event)
+void Manager::HandleKeyEvent(SDL_Event &event)
 {
     bool previus = KeyStates[(Keys)event.key.keysym.scancode];
 
     switch (event.type) {
-    case SDL_KEYDOWN:
-        KeyStates[(Keys)event.key.keysym.scancode] = true;
-        break;
-    case SDL_KEYUP:
-        KeyStates[(Keys)event.key.keysym.scancode] = false;
-        break;
+        case SDL_KEYDOWN:
+            KeyStates[(Keys)event.key.keysym.scancode] = true;
+            break;
+        case SDL_KEYUP:
+            KeyStates[(Keys)event.key.keysym.scancode] = false;
+            break;
     }
 
     if (previus != KeyStates[(Keys)event.key.keysym.scancode]) {
@@ -65,17 +65,17 @@ void Manager::HandleKeyEvent(SDL_Event& event)
     }
 }
 
-void Manager::HandleMouseEvent(SDL_Event& event)
+void Manager::HandleMouseEvent(SDL_Event &event)
 {
     bool previus = MouseStates[(Mouse)event.button.button];
 
     switch (event.type) {
-    case SDL_MOUSEBUTTONDOWN:
-        MouseStates[(Mouse)event.button.button] = true;
-        break;
-    case SDL_MOUSEBUTTONUP:
-        MouseStates[(Mouse)event.button.button] = false;
-        break;
+        case SDL_MOUSEBUTTONDOWN:
+            MouseStates[(Mouse)event.button.button] = true;
+            break;
+        case SDL_MOUSEBUTTONUP:
+            MouseStates[(Mouse)event.button.button] = false;
+            break;
     }
 
     if (previus != MouseStates[(Mouse)event.button.button]) {
@@ -83,7 +83,7 @@ void Manager::HandleMouseEvent(SDL_Event& event)
     }
 }
 
-void Manager::HandleMouseMotionEvent(SDL_Event& event)
+void Manager::HandleMouseMotionEvent(SDL_Event &event)
 {
     MousePosition.X = event.motion.x;
     MousePosition.Y = event.motion.y;

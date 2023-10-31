@@ -35,6 +35,8 @@ namespace Graphics {
         Texture2D *LoadTexture(const char *buf, size_t size);
         Texture2D *LoadTexture(const char *pixbuf, uint32_t width, uint32_t height);
 
+        Graphics::Backends::BlendHandle CreateBlendState(Graphics::Backends::TextureBlendInfo info);
+
         static Renderer *Get();
         static void      Destroy();
 

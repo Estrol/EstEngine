@@ -18,6 +18,7 @@ Base::Base()
     Rotation = 0;
     Parent = nullptr;
     ClampToParent = false;
+    BlendState = Graphics::Backends::DefaultBlend::ADD;
 
     m_renderMode = RenderMode::Normal;
     m_texturePtr = nullptr;
@@ -89,6 +90,7 @@ void Base::DrawVertices()
         info.vertices = m_vertices;
         info.fragmentType = shaderFragmentType;
         info.indices = m_indices;
+        info.alphablend = BlendState;
 
         if (m_texturePtr != nullptr) {
             info.image = m_texturePtr->GetId();
@@ -124,6 +126,7 @@ void Base::InsertToBatch()
     info.vertices = m_vertices;
     info.fragmentType = shaderFragmentType;
     info.indices = m_indices;
+    info.alphablend = BlendState;
 
     if (m_texturePtr != nullptr) {
         info.image = m_texturePtr->GetId();

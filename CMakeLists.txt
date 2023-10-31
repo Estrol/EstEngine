@@ -35,7 +35,6 @@ set(GFLAGS_USE_TARGET_NAMESPACE ON)
 # BEGIN PACKAGES
 find_package(SDL2 REQUIRED)
 find_package(SDL2_image REQUIRED)
-find_package(SoundTouch REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(spirv_cross_core REQUIRED)
 find_package(spirv_cross_glsl REQUIRED)
@@ -52,7 +51,6 @@ set(EstEngine
     spirv-cross-glsl 
     SDL2::SDL2 
     SDL2_image::SDL2_image 
-    SoundTouch::SoundTouch 
     Freetype::Freetype 
 )
 

@@ -3,15 +3,16 @@
 
 #include <deque>
 #include <functional>
-#include <memory>
 #include <map>
+#include <memory>
 
 #include "./Volk/volk.h"
-#include "VulkanDescriptor.h"
 #include "./VulkanBootstrap/VkBootstrap.h"
+#include "VulkanDescriptor.h"
 #include <Graphics/GraphicsBackendBase.h>
 
-struct DeletionQueue {
+struct DeletionQueue
+{
     std::deque<std::function<void()>> deletors;
 
     void push_function(std::function<void()> &&function)
@@ -31,18 +32,19 @@ struct DeletionQueue {
 
 namespace Graphics {
     namespace Backends {
-        struct VulkanObject {
+        struct VulkanObject
+        {
             vkb::Instance vkbInstance;
-            vkb::Device vkbDevice;
-            VkSurfaceKHR surface;
+            vkb::Device   vkbDevice;
+            VkSurfaceKHR  surface;
 
-            VkQueue graphicsQueue;
+            VkQueue  graphicsQueue;
             uint32_t graphicsQueueFamily;
 
             VkFormat depthFormat;
             VkFormat swapchainFormat;
 
-            VkDescriptorPool descriptorPool;
+            VkDescriptorPool      descriptorPool;
             VkDescriptorSetLayout descriptorSetLayout;
 
             VkShaderModule vertShaderModule;
@@ -50,32 +52,33 @@ namespace Graphics {
             VkShaderModule imageFragShaderModule;
         };
 
-        struct VulkanBuffer {
-            VkBuffer buffer;
+        struct VulkanBuffer
+        {
+            VkBuffer       buffer;
             VkDeviceMemory memory;
         };
 
-        struct VulkanFrame {
+        struct VulkanFrame
+        {
             VkSemaphore presentSemaphore;
             VkSemaphore renderSemaphore;
-            VkFence renderFence;
+            VkFence     renderFence;
 
-            VkCommandPool commandPool;
+            VkCommandPool   commandPool;
             VkCommandBuffer commandBuffer;
 
             bool isValid;
         };
 
-        struct VulkanSwapChain {
+        struct VulkanSwapChain
+        {
             std::vector<VkFramebuffer> framebuffers;
-            std::vector<VkImageView> imageViews;
-            std::vector<VkImage> images;
-
-            VkPipelineLayout pipelineLayout;
-            std::map<ShaderFragmentType, VkPipeline> pipelines;
+            std::vector<VkImageView>   imageViews;
+            std::vector<VkImage>       images;
 
             std::vector<VulkanFrame> frames;
-            VulkanFrame uploadContext;
+            VulkanFrame              uploadContext;
+            VkPipelineLayout         pipelineLayout;
 
             uint32_t maxVertexBufferSize;
             uint32_t maxIndexBufferSize;
@@ -83,14 +86,20 @@ namespace Graphics {
             VulkanBuffer vertexBuffer;
             VulkanBuffer indexBuffer;
 
-            VkImage depthImage;
-            VkImageView depthImageView;
+            VkImage        depthImage;
+            VkImageView    depthImageView;
             VkDeviceMemory depthImageMemory;
 
             vkb::Swapchain swapchain;
-            VkRenderPass renderpass;
-            uint32_t imageCount;
-            uint32_t swapchainIndex;
+            VkRenderPass   renderpass;
+            uint32_t       imageCount;
+            uint32_t       swapchainIndex;
+        };
+
+        struct VulkanRenderPipeline
+        {
+            BlendHandle                              handle;
+            std::map<ShaderFragmentType, VkPipeline> pipelines;
         };
 
         class Vulkan : public Base
@@ -112,16 +121,22 @@ namespace Graphics {
             virtual void ImGui_NewFrame() override;
             virtual void ImGui_EndFrame() override;
 
-            virtual void Push(SubmitInfo& info) override;
+            virtual void Push(SubmitInfo &info) override;
+
+            virtual void SetClearColor(glm::vec4 color) override;
+            virtual void SetClearDepth(float depth) override;
+            virtual void SetClearStencil(uint32_t stencil) override;
+
+            virtual BlendHandle CreateBlendState(TextureBlendInfo blendInfo) override;
 
             /* Internal */
-            VulkanDescriptor* CreateDescriptor();
-			void DestroyDescriptor(VulkanDescriptor* descriptor, bool _delete = true);
+            VulkanDescriptor *CreateDescriptor();
+            void              DestroyDescriptor(VulkanDescriptor *descriptor, bool _delete = true);
 
-            VulkanObject* GetVulkanObject();
-            VulkanSwapChain* GetSwapchain();
+            VulkanObject    *GetVulkanObject();
+            VulkanSwapChain *GetSwapchain();
 
-            void ImmediateSubmit(std::function<void(VkCommandBuffer)>&& function);
+            void ImmediateSubmit(std::function<void(VkCommandBuffer)> &&function);
 
         private:
             void CreateInstance();
@@ -134,12 +149,12 @@ namespace Graphics {
             void InitPipeline();
             bool InitSwapchain();
 
-            void FlushQueue();
-            void ResizeBuffer(VkDeviceSize vertices, VkDeviceSize indices);
+            void         FlushQueue();
+            void         ResizeBuffer(VkDeviceSize vertices, VkDeviceSize indices);
             VulkanFrame &GetCurrentFrame();
             VulkanFrame &GetLastFrame();
 
-            VulkanObject m_Vulkan;
+            VulkanObject    m_Vulkan;
             VulkanSwapChain m_Swapchain;
 
             // OnExit program clean up
@@ -162,7 +177,10 @@ namespace Graphics {
 
             // Descriptor, for auto cleanup
             std::vector<std::unique_ptr<VulkanDescriptor>> m_Descriptors;
-            uint32_t m_DescriptorId = 0;
+            uint32_t                                       m_DescriptorId = 0;
+
+            // Alpha blending
+            std::map<BlendHandle, VulkanRenderPipeline> m_BlendStates;
         };
     } // namespace Backends
 } // namespace Graphics

@@ -1,7 +1,7 @@
 #include <Exceptions/EstException.h>
 #include <Game.h>
-#include <Inputs/Manager.h>
-#include <Screens/Manager.h>
+#include <Inputs/InputManager.h>
+#include <Screens/ScreenManager.h>
 using namespace Screens;
 
 Manager *Manager::instance = nullptr;

@@ -1,26 +1,27 @@
 #ifndef __OPENGLBACKEND_H_
 #define __OPENGLBACKEND_H_
-#include <vector>
-#include <map>
 #include "./glad/gl.h"
 #include <Graphics/GraphicsBackendBase.h>
+#include <map>
+#include <vector>
 
 namespace Graphics {
     namespace Backends {
-        struct ShaderData {
+        struct ShaderData
+        {
             GLuint vert;
             GLuint frag;
             GLuint program;
         };
 
-        struct OpenGLData {
-            void* ctx;
-            GLuint vertexBuffer;
-            GLuint indexBuffer;
-            GLuint constantBuffer;
-            GLuint maxVertexBufferSize;
-            GLuint maxIndexBufferSize;
-
+        struct OpenGLData
+        {
+            void                                    *ctx;
+            GLuint                                   vertexBuffer;
+            GLuint                                   indexBuffer;
+            GLuint                                   constantBuffer;
+            GLuint                                   maxVertexBufferSize;
+            GLuint                                   maxIndexBufferSize;
             std::map<ShaderFragmentType, ShaderData> shaders;
         };
 
@@ -45,16 +46,26 @@ namespace Graphics {
 
             virtual void Push(SubmitInfo &info) override;
 
+            virtual void SetClearColor(glm::vec4 color) override;
+            virtual void SetClearDepth(float depth) override;
+            virtual void SetClearStencil(uint32_t stencil) override;
+
+            virtual BlendHandle CreateBlendState(TextureBlendInfo blendInfo) override;
+
             GLuint CreateTexture();
-            void DestroyTexture(GLuint texture);
+            void   DestroyTexture(GLuint texture);
 
         private:
-            void FlushQueue();
+            void CreateShader();
+            void CreateDefaultBlend();
+
+            void       FlushQueue();
             OpenGLData Data;
 
-            std::vector<SubmitInfo> submitInfos;
-            std::vector<GLuint> textures;
-        };  
+            std::vector<SubmitInfo>                 submitInfos;
+            std::vector<GLuint>                     textures;
+            std::map<BlendHandle, TextureBlendInfo> blendStates;
+        };
     } // namespace Backends
 } // namespace Graphics
 

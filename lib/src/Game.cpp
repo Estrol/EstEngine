@@ -4,9 +4,9 @@
 #include <Game.h>
 #include <Graphics/GraphicsBackendBase.h>
 #include <Graphics/NativeWindow.h>
-#include <Inputs/Manager.h>
+#include <Inputs/InputManager.h>
 #include <MsgBox.h>
-#include <Screens/Manager.h>
+#include <Screens/ScreenManager.h>
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <iostream>

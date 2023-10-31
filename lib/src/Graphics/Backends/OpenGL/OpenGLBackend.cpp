@@ -21,21 +21,22 @@
 
 using namespace Graphics::Backends;
 
-struct UniformData {
+struct UniformData
+{
     float uScale[2];
     float uTranslate[2];
 };
 
-GLuint blankTexture;
+uint32_t glBlendOperatioId;
 
-std::string compileSPRIV(const uint32_t* data, size_t size)
+std::string compileSPRIV(const uint32_t *data, size_t size)
 {
     spirv_cross::CompilerGLSL compiler(data, size);
 
     spirv_cross::CompilerGLSL::Options options;
-	options.version = 430;
+    options.version = 430;
     options.emit_push_constant_as_uniform_buffer = true;
-	compiler.set_common_options(options);
+    compiler.set_common_options(options);
 
     return compiler.compile();
 }
@@ -47,8 +48,8 @@ void OpenGL::Init()
         throw Exceptions::EstException("Failed to load OpenGL library");
     }
 
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
+    // SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    // SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -88,27 +89,34 @@ void OpenGL::Init()
     glGenBuffers(1, &Data.indexBuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Data.indexBuffer);
 
-    // enable depth testing
-    // glEnable(GL_DEPTH_TEST);
-    // glDepthFunc(GL_LESS);
-
-    // // enable alpha blending
-    // glEnable(GL_BLEND);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     // // enable texture 2d
     glEnable(GL_TEXTURE_2D);
 
     // set viewport
     glViewport(0, 0, window->GetWindowSize().Width, window->GetWindowSize().Height);
 
+    Data.maxVertexBufferSize = MAX_VERTEX_BUFFER_SIZE;
+    Data.maxIndexBufferSize = MAX_INDEX_BUFFER_SIZE;
+
+    // float[2] scale, translation uniform buffer
+    glGenBuffers(1, &Data.constantBuffer);
+    glBindBuffer(GL_UNIFORM_BUFFER, Data.constantBuffer);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformData), NULL, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, Data.constantBuffer);
+
+    CreateShader();
+    CreateDefaultBlend();
+}
+
+void OpenGL::CreateShader()
+{
     std::vector<std::pair<ShaderFragmentType, std::pair<const uint32_t *, size_t>>> shaders = {
         { ShaderFragmentType::Solid, { __glsl_solid, sizeof(__glsl_solid) / sizeof(__glsl_image[0]) } },
         { ShaderFragmentType::Image, { __glsl_image, sizeof(__glsl_image) / sizeof(__glsl_image[0]) } }
     };
 
     for (auto &[type, shader] : shaders) {
-        auto vertex = compileSPRIV(__glsl_position, sizeof(__glsl_position) / sizeof(__glsl_position[0]));
+        auto          vertex = compileSPRIV(__glsl_position, sizeof(__glsl_position) / sizeof(__glsl_position[0]));
         const GLchar *sourcevertex = (const GLchar *)vertex.c_str();
 
         std::cout << vertex << std::endl;
@@ -124,7 +132,7 @@ void OpenGL::Init()
             throw Exceptions::EstException("Failed to compile vertex shader");
         }
 
-        auto fragment = compileSPRIV(shader.first, shader.second);
+        auto          fragment = compileSPRIV(shader.first, shader.second);
         const GLchar *sourcefragment = (const GLchar *)fragment.c_str();
 
         GLuint fragmentId = glCreateShader(GL_FRAGMENT_SHADER);
@@ -150,40 +158,75 @@ void OpenGL::Init()
 
         Data.shaders[type] = { shaderId, fragmentId, programId };
     }
+}
 
-    Data.maxVertexBufferSize = MAX_VERTEX_BUFFER_SIZE;
-    Data.maxIndexBufferSize = MAX_INDEX_BUFFER_SIZE;
+void OpenGL::CreateDefaultBlend()
+{
+    // NONE, no blending
+    // BLEND, dstRGB = (srcRGB * srcA) + (dstRGB * (1-srcA)), dstA = srcA + (dstA * (1-srcA))
+    // ADD, dstRGB = (srcRGB * srcA) + dstRGB, dstA = dstA
+    // MOD, dstRGB = srcRGB * dstRGB, dstA = dstA
+    // MUL dstRGB = (srcRGB * dstRGB) + (dstRGB * (1-srcA)), dstA = (srcA * dstA) + (dstA * (1-srcA))
 
-    // float[2] scale, translation uniform buffer
-    glGenBuffers(1, &Data.constantBuffer);
-    glBindBuffer(GL_UNIFORM_BUFFER, Data.constantBuffer);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformData), NULL, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, Data.constantBuffer);
+    TextureBlendInfo blendNone = {
+        false,
+        BlendFactor::BLEND_FACTOR_ONE,
+        BlendFactor::BLEND_FACTOR_ZERO,
+        BlendOp::BLEND_OP_ADD,
+        BlendFactor::BLEND_FACTOR_ONE,
+        BlendFactor::BLEND_FACTOR_ZERO,
+        BlendOp::BLEND_OP_ADD
+    };
 
-    {
-        std::vector<unsigned char> RGBA = {
-            255, 255, 255, 255
-        };
+    TextureBlendInfo blendBlend = {
+        true,
+        BlendFactor::BLEND_FACTOR_SRC_ALPHA,
+        BlendFactor::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        BlendOp::BLEND_OP_ADD,
+        BlendFactor::BLEND_FACTOR_SRC_ALPHA,
+        BlendFactor::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        BlendOp::BLEND_OP_ADD
+    };
 
-        // create blank texture
-        glGenTextures(1, &blankTexture);
-        glBindTexture(GL_TEXTURE_2D, blankTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, RGBA.data());
+    TextureBlendInfo blendAdd = {
+        true,
+        BlendFactor::BLEND_FACTOR_ONE,
+        BlendFactor::BLEND_FACTOR_ONE,
+        BlendOp::BLEND_OP_ADD,
+        BlendFactor::BLEND_FACTOR_ONE,
+        BlendFactor::BLEND_FACTOR_ONE,
+        BlendOp::BLEND_OP_ADD
+    };
 
-        // set texture parameters
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); // GL_LINEAR
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // GL_LINEAR
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // GL_REPEAT
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // GL_REPEAT
+    TextureBlendInfo blendMod = {
+        true,
+        BlendFactor::BLEND_FACTOR_DST_COLOR,
+        BlendFactor::BLEND_FACTOR_ZERO,
+        BlendOp::BLEND_OP_ADD,
+        BlendFactor::BLEND_FACTOR_ONE,
+        BlendFactor::BLEND_FACTOR_ZERO,
+        BlendOp::BLEND_OP_ADD
+    };
 
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
+    TextureBlendInfo blendMul = {
+        true,
+        BlendFactor::BLEND_FACTOR_SRC_COLOR,
+        BlendFactor::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        BlendOp::BLEND_OP_ADD,
+        BlendFactor::BLEND_FACTOR_SRC_ALPHA,
+        BlendFactor::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        BlendOp::BLEND_OP_ADD
+    };
+
+    CreateBlendState(blendNone);
+    CreateBlendState(blendBlend);
+    CreateBlendState(blendAdd);
+    CreateBlendState(blendMod);
+    CreateBlendState(blendMul);
 }
 
 void OpenGL::Shutdown()
 {
-    glDeleteTextures(1, &blankTexture);
-
     for (GLuint texture : textures) {
         glDeleteTextures(1, &texture);
     }
@@ -244,6 +287,88 @@ void OpenGL::Push(SubmitInfo &info)
     submitInfos.push_back(info);
 }
 
+GLenum mapBlendFactor(BlendFactor factor)
+{
+    switch (factor) {
+        case BlendFactor::BLEND_FACTOR_ZERO:
+            return GL_ZERO;
+        case BlendFactor::BLEND_FACTOR_ONE:
+            return GL_ONE;
+        case BlendFactor::BLEND_FACTOR_SRC_COLOR:
+            return GL_SRC_COLOR;
+        case BlendFactor::BLEND_FACTOR_ONE_MINUS_SRC_COLOR:
+            return GL_ONE_MINUS_SRC_COLOR;
+        case BlendFactor::BLEND_FACTOR_DST_COLOR:
+            return GL_DST_COLOR;
+        case BlendFactor::BLEND_FACTOR_ONE_MINUS_DST_COLOR:
+            return GL_ONE_MINUS_DST_COLOR;
+        case BlendFactor::BLEND_FACTOR_SRC_ALPHA:
+            return GL_SRC_ALPHA;
+        case BlendFactor::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA:
+            return GL_ONE_MINUS_SRC_ALPHA;
+        case BlendFactor::BLEND_FACTOR_DST_ALPHA:
+            return GL_DST_ALPHA;
+        case BlendFactor::BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
+            return GL_ONE_MINUS_DST_ALPHA;
+        case BlendFactor::BLEND_FACTOR_CONSTANT_COLOR:
+            return GL_CONSTANT_COLOR;
+        case BlendFactor::BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
+            return GL_ONE_MINUS_CONSTANT_COLOR;
+        case BlendFactor::BLEND_FACTOR_CONSTANT_ALPHA:
+            return GL_CONSTANT_ALPHA;
+        case BlendFactor::BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
+            return GL_ONE_MINUS_CONSTANT_ALPHA;
+        case BlendFactor::BLEND_FACTOR_SRC_ALPHA_SATURATE:
+            return GL_SRC_ALPHA_SATURATE;
+        case BlendFactor::BLEND_FACTOR_SRC1_COLOR:
+            return GL_SRC1_COLOR;
+        case BlendFactor::BLEND_FACTOR_ONE_MINUS_SRC1_COLOR:
+            return GL_ONE_MINUS_SRC1_COLOR;
+        case BlendFactor::BLEND_FACTOR_SRC1_ALPHA:
+            return GL_SRC1_ALPHA;
+        case BlendFactor::BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA:
+            return GL_ONE_MINUS_SRC1_ALPHA;
+        default:
+            return GL_ZERO; // default case for BLEND_FACTOR_MAX_ENUM and any other unexpected value
+    }
+}
+
+GLenum mapBlendOp(BlendOp op)
+{
+    switch (op) {
+        case BlendOp::BLEND_OP_ADD:
+            return GL_FUNC_ADD;
+        case BlendOp::BLEND_OP_SUBTRACT:
+            return GL_FUNC_SUBTRACT;
+        case BlendOp::BLEND_OP_REVERSE_SUBTRACT:
+            return GL_FUNC_REVERSE_SUBTRACT;
+        case BlendOp::BLEND_OP_MIN:
+            return GL_MIN;
+        case BlendOp::BLEND_OP_MAX:
+            return GL_MAX;
+        default:
+            return GL_FUNC_ADD; // default case for BLEND_OP_MAX_ENUM and any other unexpected value
+    }
+}
+
+void setBlendInfo(const TextureBlendInfo &blendInfo)
+{
+    if (blendInfo.Enable) {
+        glEnable(GL_BLEND);
+        glBlendFuncSeparate(
+            mapBlendFactor(blendInfo.SrcColor),
+            mapBlendFactor(blendInfo.DstColor),
+            mapBlendFactor(blendInfo.SrcAlpha),
+            mapBlendFactor(blendInfo.DstAlpha));
+
+        glBlendEquationSeparate(
+            mapBlendOp(blendInfo.ColorOp),
+            mapBlendOp(blendInfo.AlphaOp));
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
 void OpenGL::FlushQueue()
 {
     if (submitInfos.size() == 0) {
@@ -266,7 +391,7 @@ void OpenGL::FlushQueue()
     glBufferSubData(GL_ARRAY_BUFFER, 0, vertex_size, nullptr);
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, indices_size, nullptr);
 
-    std::vector<Vertex> vertices;
+    std::vector<Vertex>   vertices;
     std::vector<uint16_t> indices;
 
     uint16_t currentVertexCount = 0;
@@ -281,7 +406,7 @@ void OpenGL::FlushQueue()
     translate[0] = -1.0f;
     translate[1] = 1.0f;
 
-    for (auto &info : submitInfos) { 
+    for (auto &info : submitInfos) {
         for (auto &vertex : info.vertices) {
             vertices.push_back(vertex);
         }
@@ -323,30 +448,32 @@ void OpenGL::FlushQueue()
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UniformData), &pc);
 
     for (auto &info : submitInfos) {
-        auto &vertices = info.vertices;
-        auto &indices = info.indices;
-        auto shadertype = info.fragmentType;
+        auto  &vertices = info.vertices;
+        auto  &indices = info.indices;
+        auto   shadertype = info.fragmentType;
         GLuint imageId = static_cast<GLuint>(reinterpret_cast<intptr_t>(info.image));
 
         auto shader = Data.shaders[shadertype].program;
         glUseProgram(shader);
-        
+
         GLint textureLocation = glGetUniformLocation(shader, "sTexture");
-        if (textureLocation != -1) {
+        if (textureLocation != -1 && imageId != -1) {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, imageId != -1 ? imageId : blankTexture);
+            glBindTexture(GL_TEXTURE_2D, imageId);
             glUniform1d(textureLocation, 0);
         }
+
+        auto &blend = blendStates[info.alphablend];
+        setBlendInfo(blend);
 
         GLuint firstIndex = indices_offset;
         GLuint indexCount = (GLuint)info.indices.size();
 
         glScissor(
-            (GLint)info.clipRect.X, 
-            (GLint)info.clipRect.Y, 
-            (GLsizei)info.clipRect.Width, 
-            (GLsizei)info.clipRect.Height
-        );
+            (GLint)info.clipRect.X,
+            (GLint)info.clipRect.Y,
+            (GLsizei)info.clipRect.Width,
+            (GLsizei)info.clipRect.Height);
 
         glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_SHORT, (void *)(firstIndex * sizeof(uint16_t)));
 
@@ -361,7 +488,7 @@ GLuint OpenGL::CreateTexture()
 {
     GLuint texture;
     glGenTextures(1, &texture);
-    
+
     textures.push_back(texture);
     return texture;
 }
@@ -374,6 +501,24 @@ void OpenGL::DestroyTexture(GLuint texture)
     }
 
     glDeleteTextures(1, &texture);
+}
+
+void OpenGL::SetClearColor(glm::vec4 color)
+{
+}
+
+void OpenGL::SetClearDepth(float depth)
+{
+}
+
+void OpenGL::SetClearStencil(uint32_t stencil)
+{
+}
+
+BlendHandle OpenGL::CreateBlendState(TextureBlendInfo blendInfo)
+{
+    blendStates[glBlendOperatioId] = blendInfo;
+    return glBlendOperatioId++;
 }
 
 void OpenGL::ImGui_Init()

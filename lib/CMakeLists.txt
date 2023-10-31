@@ -54,7 +54,7 @@ add_library(EstEngineLib STATIC ${HEADERS}
 
     # Screens
     "src/Screens/Base.cpp" 
-    "src/Screens/Manager.cpp"
+    "src/Screens/ScreenManager.cpp"
 
     # UI
     "src/UI/UIBase.cpp" 
@@ -89,7 +89,7 @@ add_library(EstEngineLib STATIC ${HEADERS}
     "src/Math/Vector2.cpp" 
 
     # Inputs
-    "src/Inputs/Manager.cpp" 
+    "src/Inputs/InputManager.cpp" 
 
     # Threads
     "src/Threads/Thread.cpp" 

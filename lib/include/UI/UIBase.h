@@ -16,7 +16,7 @@ namespace UI {
 
     class Base
     {
-      public:
+    public:
         Base();
         virtual ~Base();
 
@@ -27,10 +27,12 @@ namespace UI {
         UDim2 Size;
 
         Base *Parent;
-        bool ClampToParent;
+        bool  ClampToParent;
 
-        Color3 Color3;
+        Color3  Color3;
         Vector2 AnchorPoint;
+
+        Graphics::Backends::BlendHandle BlendState;
 
         float Transparency;
         float Rotation;
@@ -40,24 +42,24 @@ namespace UI {
 
         void CalculateSize();
 
-      protected:
+    protected:
         virtual void OnDraw();
-        void InsertToBatch();
-        void RotateVertex();
+        void         InsertToBatch();
+        void         RotateVertex();
 
-        Rect clipRect = {};
+        Rect                                   clipRect = {};
         Graphics::Backends::ShaderFragmentType shaderFragmentType;
 
         std::vector<Graphics::Backends::Vertex> m_vertices;
-        std::vector<uint16_t> m_indices;
+        std::vector<uint16_t>                   m_indices;
 
         std::unique_ptr<Graphics::Texture2D> m_texture;
-        Graphics::Texture2D *m_texturePtr = nullptr;
-        RenderMode m_renderMode = RenderMode::Normal;
+        Graphics::Texture2D                 *m_texturePtr = nullptr;
+        RenderMode                           m_renderMode = RenderMode::Normal;
 
         std::vector<Graphics::Backends::SubmitInfo> m_batches;
 
-      private:
+    private:
         void DrawVertices();
     };
 } // namespace UI

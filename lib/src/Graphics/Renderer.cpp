@@ -181,3 +181,8 @@ Texture2D *Renderer::LoadTexture(const char *pixbuf, uint32_t width, uint32_t he
 
     return texture;
 }
+
+Graphics::Backends::BlendHandle Renderer::CreateBlendState(Graphics::Backends::TextureBlendInfo info)
+{
+    return m_Backend->CreateBlendState(info);
+}
