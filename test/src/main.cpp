@@ -1,7 +1,7 @@
 #include <Audio/AudioEngine.h>
 #include <Audio/AudioStream.h>
 #include <Game.h>
-#include <Screens/Manager.h>
+#include <Screens/ScreenManager.h>
 #include <UI/Text.h>
 
 class MyScreen : public Screens::Base
