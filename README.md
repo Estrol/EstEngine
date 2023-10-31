@@ -8,7 +8,7 @@ However the following features are already implemented:
 
 - Audio playback
     - Using [miniaudio](https://github.com/mackron/miniaudio) as backend
-    - Support TimeStretching using [SoundTouch](https://gitlab.com/soundtouch/soundtouch)
+    - Support TimeStretching using [signalsmith-stretch fork](https://github.com/estrol/signalsmith-stretch)
     - Support Audio stream and sample
 - Graphics
     - Vulkan
@@ -41,3 +41,17 @@ cmake --open build
 
 ## License
 This project is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file for details.
+
+This project use the following package to work, which have their own license:
+```
+SDL2
+SDL2_image
+glm
+vulkan-headers
+spirv-cross
+lodepng
+freetype
+glad
+miniaudio
+signalsmith-stretch
+```
