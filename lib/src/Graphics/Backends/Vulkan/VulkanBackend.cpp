@@ -146,10 +146,14 @@ bool Vulkan::InitSwapchain()
 
     auto resultbuild = builder.build();
     if (!resultbuild) {
+        if (resultbuild.error() == vkb::SwapchainError::invalid_window_size) {
+            vkb::destroy_swapchain(m_Swapchain.swapchain);
+        }
+
+        m_Swapchain.swapchain.swapchain = VK_NULL_HANDLE;
         return false;
     }
-
-    m_Swapchain.swapchain.swapchain = VK_NULL_HANDLE;
+	
     vkb::destroy_swapchain(m_Swapchain.swapchain);
     m_Swapchain.swapchain = resultbuild.value();
 
@@ -169,9 +173,11 @@ bool Vulkan::InitSwapchain()
     m_Vulkan.depthFormat = VK_FORMAT_D32_SFLOAT;
     m_Vulkan.swapchainFormat = m_Swapchain.swapchain.image_format;
 
+    auto swapchainExtent = m_Swapchain.swapchain.extent;
+
     VkExtent3D depthImageExtent = {
-        (uint32_t)rect.Width,
-        (uint32_t)rect.Height,
+        (uint32_t)swapchainExtent.width,
+        (uint32_t)swapchainExtent.height,
         1
     };
 
@@ -689,9 +695,6 @@ void Vulkan::InitPipeline()
     m_Swapchain.pipelineLayout = pipeline_layout;
     m_SwapchainDeletionQueue.push_function([=] {
         vkDestroyPipelineLayout(m_Vulkan.vkbDevice.device, m_Swapchain.pipelineLayout, nullptr);
-    });
-
-    m_DeletionQueue.push_function([=] {
         vkDestroyDescriptorSetLayout(m_Vulkan.vkbDevice.device, image_descriptor_layout, nullptr);
     });
 }
@@ -715,7 +718,7 @@ void Vulkan::ImmediateSubmit(std::function<void(VkCommandBuffer)> &&function)
 
     VkSubmitInfo submit = vkinit::submit_info(&m_Swapchain.uploadContext.commandBuffer);
 
-    result = vkQueueSubmit(m_Vulkan.graphicsQueue, 1, &submit, VK_NULL_HANDLE);
+    result = vkQueueSubmit(m_Vulkan.graphicsQueue, 1, &submit, m_Swapchain.uploadContext.renderFence);
 
     if (result != VK_SUCCESS) {
         throw Exceptions::EstException("Failed to submit queue");
@@ -958,8 +961,8 @@ void Vulkan::FlushQueue()
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = (float)rect.Width;
-    viewport.height = (float)rect.Height;
+    viewport.width = (float)(rect.Width <= 0 ? 1 : rect.Width);
+    viewport.height = (float)(rect.Height <= 0 ? 1 : rect.Height);
     viewport.maxDepth = 1.0f;
 
     vkCmdSetViewport(frame.commandBuffer, 0, 1, &viewport);

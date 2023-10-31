@@ -1,0 +1,3 @@
+[submodule "third-party/signalsmith-stretch"]
+	path = third-party/signalsmith-stretch
+	url = https://github.com/Estrol/signalsmith-stretch

@@ -1,3 +1,5 @@
+#include <Audio/AudioEngine.h>
+#include <Audio/AudioStream.h>
 #include <Game.h>
 #include <Screens/Manager.h>
 #include <UI/Text.h>
@@ -23,17 +25,28 @@ public:
         m_Text = std::make_unique<UI::Text>();
         m_Text->Position = UDim2::fromScale(0.5, 0.5);
         m_Text->Alignment = UI::Alignment::Center;
+
+        auto manager = Audio::Engine::Get();
+        m_Stream = manager->LoadStream("C:\\Users\\ACER\\Documents\\Games\\DPJAM\\Music\\dump_output\\Back_to_the_gatemp3_ref(0).wav");
+
+        m_Stream->SetRate(1.2f);
+        m_Stream->Play();
         return true;
     }
 
     bool Detach() override
     {
         m_Text.reset();
+        m_Stream->Stop();
+
+        auto manager = Audio::Engine::Get();
+        manager->Destroy(m_Stream);
         return true;
     }
 
 private:
     std::unique_ptr<UI::Text> m_Text;
+    Audio::Stream            *m_Stream;
 };
 
 class MyGame : public Game
@@ -49,6 +62,9 @@ protected:
 
 int main()
 {
+    // enable memory leak test
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
     MyGame game;
 
     RunInfo info = {};
@@ -56,7 +72,7 @@ int main()
     info.resolution = { 1280, 720 };
     info.fullscreen = false;
     info.threadMode = ThreadMode::Multi;
-    info.graphics = Graphics::API::OpenGL;
+    info.graphics = Graphics::API::Vulkan;
 
     game.Run(info);
 }

@@ -40,8 +40,8 @@ void Game::Run(RunInfo info)
         });
 
         auto renderer = Graphics::Renderer::Get();
-        auto fontmanager = Fonts::FontManager::Get();
         auto scenemanager = Screens::Manager::Get();
+        auto fontmanager = Fonts::FontManager::Get();
 
         if (info.threadMode == ThreadMode::Multi) {
             auto oninit = [=]() {
@@ -111,6 +111,7 @@ void Game::Run(RunInfo info)
             OnUnload();
 
             Screens::Manager::Destroy();
+            Fonts::FontManager::Destroy();
             Graphics::Renderer::Destroy();
         }
 
@@ -120,6 +121,8 @@ void Game::Run(RunInfo info)
     } catch (Exceptions::EstException &e) {
         MsgBox::Show("Error", e.what(), MsgBox::Type::Ok, MsgBox::Flags::Error);
     }
+
+    SDL_Quit();
 }
 
 void Game::OnLoad()

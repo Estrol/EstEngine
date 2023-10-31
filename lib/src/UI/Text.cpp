@@ -1,4 +1,3 @@
-#include "../Fonts/FontManager.h"
 #include <Graphics/Renderer.h>
 #include <UI/Text.h>
 #include <cstdarg>
@@ -15,9 +14,9 @@ Text::Text()
     info.FontSize = 20.0f;
 
     info.Ranges.push_back({ 0x0020, 0x00FF });
-    info.Ranges.push_back({ 0x3000, 0x30FF });
-    info.Ranges.push_back({ 0x31F0, 0x31FF });
-    info.Ranges.push_back({ 0x2600, 0x26FF });
+    // info.Ranges.push_back({ 0x3000, 0x30FF });
+    // info.Ranges.push_back({ 0x31F0, 0x31FF });
+    // info.Ranges.push_back({ 0x2600, 0x26FF });
 
     m_FontAtlas = Fonts::FontManager::Get()->LoadFont(info);
     m_renderMode = RenderMode::Batches;
@@ -35,9 +34,9 @@ Text::Text(std::string fontName, float fontSize)
     info.FontSize = fontSize;
 
     info.Ranges.push_back({ 0x0020, 0x00FF });
-    info.Ranges.push_back({ 0x3000, 0x30FF });
-    info.Ranges.push_back({ 0x31F0, 0x31FF });
-    info.Ranges.push_back({ 0x2600, 0x26FF });
+    // info.Ranges.push_back({ 0x3000, 0x30FF });
+    // info.Ranges.push_back({ 0x31F0, 0x31FF });
+    // info.Ranges.push_back({ 0x2600, 0x26FF });
 
     m_FontAtlas = Fonts::FontManager::Get()->LoadFont(info);
     m_renderMode = RenderMode::Batches;

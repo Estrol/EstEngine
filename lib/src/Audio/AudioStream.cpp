@@ -4,12 +4,16 @@
 #include <Exceptions/EstException.h>
 #include <fstream>
 
+#define SIGNALSMITH_STRETCH_IMPLEMENTATION
+#include <signalsmith-stretch/signalsmith-stretch.h>
+
 using namespace Audio;
 
 Stream::Stream()
 {
     Data = {};
-    Data.SoundTouch = new soundtouch::SoundTouch();
+    // Data.SoundTouch = new soundtouch::SoundTouch();
+    Data.Stretch = new signalsmith::stretch::SignalsmithStretch();
 }
 
 Stream::~Stream()
@@ -18,9 +22,10 @@ Stream::~Stream()
     ma_engine_uninit(&Data.Engine);
     ma_decoder_uninit(&Data.Decoder);
 
-    Data.SoundTouch->flush();
-    Data.SoundTouch->clear();
-    delete Data.SoundTouch;
+    // Data.SoundTouch->flush();
+    // Data.SoundTouch->clear();
+    // delete Data.SoundTouch;
+    delete Data.Stretch;
 }
 
 void Stream::Load(std::filesystem::path path)
@@ -67,9 +72,11 @@ void Stream::LoadMemory(const char *buf, size_t size)
     Initialize();
 }
 
+// Audio data processing
+// TODO: use static array instead of dynamic array?
 void data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount)
 {
-    using namespace soundtouch;
+    // using namespace soundtouch;
 
     ma_engine *pEngine = (ma_engine *)pDevice->pUserData;
     if (!pEngine) {
@@ -90,13 +97,54 @@ void data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uin
         }
 
         ma_uint64 sampleReaded = 0;
-        auto result = ma_engine_read_pcm_frames(pEngine, pData->TempBuffer.data(), frameToRead, &sampleReaded);
+        auto      result = ma_engine_read_pcm_frames(pEngine, pData->TempBuffer.data(), frameToRead, &sampleReaded);
 
-        if (result == MA_SUCCESS && sampleReaded >= 0) {
-            pData->SoundTouch->putSamples(pData->TempBuffer.data(), (uint)sampleReaded);
+        if (!sampleReaded)
+            return;
+
+        auto& in = pData->InAudioChannels;
+		auto& out = pData->OutAudioChannels;
+
+        if (in.size() != pData->Decoder.outputChannels) {
+            in.resize(pData->Decoder.outputChannels);
+            out.resize(in.size());
         }
 
-        pData->SoundTouch->receiveSamples((SAMPLETYPE*)pOutput, frameCount);
+        for (int i = 0; i < in.size(); i++) {
+            if (in[i].size() < sampleReaded) {
+                in[i].resize(sampleReaded);
+            }
+
+            if (out[i].size() < frameCount) {
+                out[i].resize(frameCount);
+            }
+        }
+
+        // copy data from temp buffer to input buffer based on channel size
+        for (ma_uint32 i = 0; i < pData->Decoder.outputChannels; i++) {
+            for (ma_uint32 j = 0; j < frameCount; j++) {
+                int index = (j * pData->Decoder.outputChannels) + i;
+                // check out of bounds;
+                if (index >= pData->Decoder.outputChannels * sampleReaded)
+                    __debugbreak();
+
+                in[i][j] = pData->TempBuffer[index];
+            }
+        }
+
+        pData->Stretch->process(in, (int)sampleReaded, out, (int)frameCount);
+
+        // copy data from output buffer to pOutput based on channel size
+        for (ma_uint32 i = 0; i < pData->Decoder.outputChannels; i++) {
+            for (ma_uint32 j = 0; j < frameCount; j++) {
+                unsigned int index = (j * pData->Decoder.outputChannels) + i;
+                // check out of bounds;
+                if (index >= pData->Decoder.outputChannels * frameCount)
+                    __debugbreak();
+
+                ((float *)pOutput)[index] = out[i][j];
+            }
+        }
     }
 }
 
@@ -118,8 +166,10 @@ void Stream::Initialize()
         throw Exceptions::EstException("Failed to initialize audio decoder");
     }
 
-    Data.SoundTouch->setSampleRate(Data.Decoder.outputSampleRate);
-    Data.SoundTouch->setChannels(Data.Decoder.outputChannels);
+    // Data.SoundTouch->setSampleRate(Data.Decoder.outputSampleRate);
+    // Data.SoundTouch->setChannels(Data.Decoder.outputChannels);
+
+    Data.Stretch->presetDefault(Data.Decoder.outputChannels, static_cast<int>(Data.Decoder.outputSampleRate));
 
     auto engineConfig = ma_engine_config_init();
     engineConfig.dataCallback = data_callback;
@@ -153,7 +203,8 @@ void Stream::Play()
         }
     }
 
-    Data.SoundTouch->clear();
+    // Data.SoundTouch->clear();
+    Data.Stretch->reset();
 
     Data.Playing = true;
     ma_engine_start(&Data.Engine);
@@ -181,7 +232,7 @@ void Stream::Seek(float miliseconds)
 {
     uint32_t position = static_cast<uint32_t>(miliseconds * Data.Decoder.outputSampleRate);
 
-    Data.SoundTouch->clear();
+    // Data.SoundTouch->clear();
     ma_sound_seek_to_pcm_frame(&Data.Sound, position);
 }
 
@@ -190,17 +241,17 @@ void Stream::SetVolume(float volume)
     ma_sound_set_volume(&Data.Sound, volume);
 }
 
-float Stream::GetVolume() const 
+float Stream::GetVolume() const
 {
     return ma_sound_get_volume(&Data.Sound);
 }
 
-float Stream::GetLength() const     
+float Stream::GetLength() const
 {
     throw Exceptions::EstException("Not implemented");
 }
 
-float Stream::GetCurrent() const     
+float Stream::GetCurrent() const
 {
     throw Exceptions::EstException("Not implemented");
 }
@@ -215,5 +266,6 @@ void Stream::SetRate(float pitch)
     Data.AudioRate = pitch;
 
     ma_sound_set_pitch(&Data.Sound, pitch);
-    Data.SoundTouch->setPitch(1 / pitch);
+    Data.Stretch->setTransposeFactor(1 / pitch);
+    // Data.SoundTouch->setPitch(1 / pitch);
 }

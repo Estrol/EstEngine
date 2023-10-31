@@ -2,11 +2,7 @@
 #define __TEXT_H_
 
 #include "UIBase.h"
-
-namespace Fonts {
-    struct FontAtlas;
-    struct Glyph;
-} // namespace Fonts
+#include <Fonts/FontManager.h>
 
 namespace UI {
     enum class Alignment {

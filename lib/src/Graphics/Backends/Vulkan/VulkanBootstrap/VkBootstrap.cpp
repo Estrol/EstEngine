@@ -1964,7 +1964,7 @@ bool supports_features(VkPhysicalDeviceFeatures supported,
 
         VkExtent2D extent = detail::find_extent(surface_support.capabilities, info.desired_width, info.desired_height);
         if (surface_support.capabilities.currentExtent.width <= 0 || surface_support.capabilities.currentExtent.height <= 0) {
-            return Error{ SwapchainError::failed_query_surface_support_details, VK_ERROR_INITIALIZATION_FAILED };
+            return Error{ SwapchainError::invalid_window_size };
         }
 
         uint32_t image_array_layers = info.array_layer_count;

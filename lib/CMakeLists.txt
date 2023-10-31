@@ -44,8 +44,6 @@ foreach(shader IN LISTS SHADERS)
     endif()
 endforeach()
 
-include_directories("./include")
-
 add_library(EstEngineLib STATIC ${HEADERS}
     "src/Game.cpp" 
     "src/MsgBox.cpp" 
@@ -107,3 +105,6 @@ add_library(EstEngineLib STATIC ${HEADERS}
     "src/Misc/Filesystem.cpp"
     "src/Graphics/Utils/stb_image.cpp"
 )
+
+include_directories("./include")
+target_include_directories(EstEngineLib PUBLIC include)

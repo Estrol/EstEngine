@@ -6,7 +6,8 @@
                 "${workspaceFolder}/build/vcpkg_installed/x64-windows/include",
                 "${vcpkgRoot}/x64-windows/include",
                 "${VULKAN_SDK}/include",
-                "${workspaceFolder}/lib/include"
+                "${workspaceFolder}/lib/include",
+                "${workspaceFolder}/third-party"
             ],
             "intelliSenseMode": "windows-msvc-x64",
             "compilerPath": "cl.exe",

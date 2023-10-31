@@ -24,8 +24,8 @@ endif()
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     if (MSVC)
         # add hot reload on visual studio
-        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /ZI")
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /ZI /Ob1")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI /Ob1")
         set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /ignore:4099")
     endif()
 endif()
@@ -39,10 +39,11 @@ find_package(SoundTouch REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(spirv_cross_core REQUIRED)
 find_package(spirv_cross_glsl REQUIRED)
+find_package(OpenMP)
 # END PACKAGES
 
 include_directories(
-	${CMAKE_SOURCE_DIR}/third-party/headers 
+	${CMAKE_SOURCE_DIR}/third-party
     ${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include
 )
 

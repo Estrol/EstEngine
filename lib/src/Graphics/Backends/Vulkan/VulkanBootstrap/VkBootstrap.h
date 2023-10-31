@@ -214,7 +214,8 @@ enum class SwapchainError {
 	failed_get_swapchain_images,
 	failed_create_swapchain_image_views,
 	required_min_image_count_too_low,
-	required_usage_not_supported
+	required_usage_not_supported,
+	invalid_window_size
 };
 
 std::error_code make_error_code(InstanceError instance_error);
