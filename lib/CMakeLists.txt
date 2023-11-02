@@ -13,7 +13,7 @@ else()
 	message(FATAL_ERROR "Unsupported platform")
 endif()
 
-set(SHADER_LOCATION "${CMAKE_SOURCE_DIR}/lib/src/Graphics/Shaders")
+set(SHADER_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics/Shaders")
 
 set(SHADERS
     "${SHADER_LOCATION}/image.frag" 
@@ -36,7 +36,6 @@ foreach(shader IN LISTS SHADERS)
             --vn "__glsl_${out_string}" ${shader}
 
         RESULT_VARIABLE out 
-        
     )
 
     if (out EQUAL 1)
