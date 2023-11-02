@@ -91,6 +91,7 @@
         "xutility": "cpp",
         "*.ipp": "cpp",
         "stack": "cpp",
-        "coroutine": "cpp"
+        "coroutine": "cpp",
+        "cinttypes": "cpp"
     },
 }

@@ -47,6 +47,8 @@ namespace Graphics {
         {
             std::vector<Vertex>   vertices;
             std::vector<uint16_t> indices;
+            glm::vec2             uiSize;
+            glm::vec4             uiRadius;
 
             Rect clipRect;
             int  zIndex;

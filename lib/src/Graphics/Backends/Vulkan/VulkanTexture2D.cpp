@@ -53,19 +53,19 @@ void VKTexture2D::Load(const char *buf, size_t size)
 
     auto vulkan = (Graphics::Backends::Vulkan *)renderer->GetBackend();
     Descriptor = vulkan->CreateDescriptor();
-    Descriptor->Channels = 4;
-
     unsigned char *image_data = stbi_load_from_memory(
         (const unsigned char *)buf,
         (int)size,
         &Descriptor->Size.Width,
         &Descriptor->Size.Height,
         &Descriptor->Channels,
-        4);
+        STBI_rgb_alpha);
 
     if (!image_data) {
         throw EstException("Failed to load image");
     }
+
+    Descriptor->Channels = 4; // always use RGBA
 
     Load((const char *)image_data, (uint32_t)Descriptor->Size.Width, (uint32_t)Descriptor->Size.Height);
     stbi_image_free(image_data);

@@ -57,4 +57,6 @@ set(EstEngine
 message("Libraries: ${EstEngine}")
 
 add_subdirectory(lib)
-add_subdirectory(test)
+if (ENABLE_TEST STREQUAL "1") 
+    add_subdirectory(test)
+endif()

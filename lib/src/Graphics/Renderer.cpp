@@ -113,23 +113,48 @@ void Renderer::EndFrame()
     m_Backend->EndFrame();
 }
 
-Texture2D *Renderer::LoadTexture(std::filesystem::path path)
+void Renderer::ImGui_NewFrame()
+{
+    if (!m_Backend) {
+        throw Exceptions::EstException("Renderer backend not initialized");
+    }
+
+    m_Backend->ImGui_NewFrame();
+}
+
+void Renderer::ImGui_EndFrame()
+{
+    if (!m_Backend) {
+        throw Exceptions::EstException("Renderer backend not initialized");
+    }
+
+    m_Backend->ImGui_EndFrame();
+}
+
+Texture2D *CreateTexture(API api, TextureSamplerInfo sampler)
 {
     Texture2D *texture = nullptr;
 
-    switch (GetAPI()) {
+    switch (api) {
         case API::Vulkan:
         {
-            texture = new VKTexture2D(m_Sampler);
+            texture = new VKTexture2D(sampler);
             break;
         }
 
         case API::OpenGL:
         {
-            texture = new GLTexture2D(m_Sampler);
+            texture = new GLTexture2D(sampler);
             break;
         }
     }
+
+    return texture;
+}
+
+Texture2D *Renderer::LoadTexture(std::filesystem::path path)
+{
+    auto texture = CreateTexture(GetAPI(), m_Sampler);
 
     texture->Load(path);
 
@@ -138,21 +163,7 @@ Texture2D *Renderer::LoadTexture(std::filesystem::path path)
 
 Texture2D *Renderer::LoadTexture(const char *buf, size_t size)
 {
-    Texture2D *texture = nullptr;
-
-    switch (GetAPI()) {
-        case API::Vulkan:
-        {
-            texture = new VKTexture2D(m_Sampler);
-            break;
-        }
-
-        case API::OpenGL:
-        {
-            texture = new GLTexture2D(m_Sampler);
-            break;
-        }
-    }
+    auto texture = CreateTexture(GetAPI(), m_Sampler);
 
     texture->Load(buf, size);
 
@@ -161,21 +172,7 @@ Texture2D *Renderer::LoadTexture(const char *buf, size_t size)
 
 Texture2D *Renderer::LoadTexture(const char *pixbuf, uint32_t width, uint32_t height)
 {
-    Texture2D *texture = nullptr;
-
-    switch (GetAPI()) {
-        case API::Vulkan:
-        {
-            texture = new VKTexture2D(m_Sampler);
-            break;
-        }
-
-        case API::OpenGL:
-        {
-            texture = new GLTexture2D(m_Sampler);
-            break;
-        }
-    }
+    auto texture = CreateTexture(GetAPI(), m_Sampler);
 
     texture->Load(pixbuf, width, height);
 

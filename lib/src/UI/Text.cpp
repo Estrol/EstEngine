@@ -172,6 +172,10 @@ void Text::OnDraw()
         Transparency * 255
     };
 
+    glm::vec4 corRad = {
+        1.0f, 1.0f, 1.0f, 1.0f
+    };
+
     shaderFragmentType = ShaderFragmentType::Image;
     uint32_t col = ((uint32_t)(color.a) << 24) | ((uint32_t)(color.b) << 16) | ((uint32_t)(color.g) << 8) | ((uint32_t)(color.r) << 0);
     float    posy = (float)y1;

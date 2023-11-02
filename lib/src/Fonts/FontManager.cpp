@@ -1,4 +1,5 @@
 #include <Fonts/FontManager.h>
+#include <Misc/MD5.h>
 #include <SDL2/SDL.h>
 
 #include <Exceptions/EstException.h>
@@ -17,6 +18,7 @@
 #endif
 
 using namespace Fonts;
+std::string GenerateHash(const char *data, size_t size);
 
 FontManager *FontManager::m_instance = nullptr;
 
@@ -44,7 +46,7 @@ FontManager::~FontManager()
 {
     auto renderer = Graphics::Renderer::Get();
 
-    for (auto &font : m_fonts) {
+    for (auto &[key, font] : m_fonts) {
         font->Texture.reset();
     }
 
@@ -77,12 +79,20 @@ FontAtlas *FontManager::LoadFont(FontLoadFileInfo &info)
     _info.FontSize = info.FontSize;
     _info.Ranges = info.Ranges;
 
+    auto fileName = GenerateHash((const char *)_info.Buffer.data(), _info.Buffer.size());
+    if (m_fonts.find(fileName) != m_fonts.end()) {
+        return m_fonts[fileName].get();
+    }
+
     return LoadFont(_info);
 }
 
 FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
 {
-    // TODO: add check if already in cache
+    auto fileName = GenerateHash((const char *)info.Buffer.data(), info.Buffer.size());
+    if (m_fonts.find(fileName) != m_fonts.end()) {
+        return m_fonts[fileName].get();
+    }
 
     FT_Library ft;
     if (FT_Init_FreeType(&ft) != FT_Err_Ok) {
@@ -131,7 +141,7 @@ FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
         uint32_t cmax = range.second;
 
         for (uint32_t c = cmin; c < cmax; c++) {
-            FT_Load_Char(face, c, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_NORMAL);
+            FT_Load_Char(face, c, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_NORMAL | FT_LOAD_TARGET_LIGHT);
             FT_Bitmap *bmp = &face->glyph->bitmap;
 
             if (pen_x + bmp->width >= tex_width) {
@@ -147,7 +157,9 @@ FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
                 for (uint32_t col = 0; col < bmp->width; ++col) {
                     uint32_t x = pen_x + col;
                     uint32_t y = pen_y + row;
-                    tex_data[y * tex_width + x] = bmp->buffer[row * bmp->pitch + col];
+                    uint8_t  glyph_value = bmp->buffer[row * bmp->pitch + col];
+                    // uint32_t pixel = ((255 << 24) | (255 << 16) | (255 << 8) | glyph_value); // RGBA color, white glyph, alpha from glyph bitmap
+                    tex_data[y * tex_width + x] = glyph_value;
                 }
             }
 
@@ -192,10 +204,11 @@ FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
 
     std::vector<unsigned char> rgba_data(tex_width * tex_height * 4, 0);
     for (int i = 0; i < tex_data.size(); i++) {
-        rgba_data[i * 4 + 0] |= tex_data[i];
-        rgba_data[i * 4 + 1] |= tex_data[i];
-        rgba_data[i * 4 + 2] |= tex_data[i];
-        rgba_data[i * 4 + 3] |= 0xFF;
+        uint32_t pixel = tex_data[i];
+        rgba_data[i * 4 + 0] |= pixel;       // Red
+        rgba_data[i * 4 + 1] |= pixel;       // Green
+        rgba_data[i * 4 + 2] |= pixel;       // Blue
+        rgba_data[i * 4 + 3] = pixel & 0xFF; // Alpha
     }
 
     auto tex = Graphics::Renderer::Get()->LoadTexture(
@@ -211,7 +224,21 @@ FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
     atlas->Invalid = Invalid;
     atlas->FontSize = info.FontSize;
 
-    m_fonts.push_back(std::move(atlas));
+    m_fonts[fileName] = std::move(atlas);
 
-    return m_fonts.back().get();
+    return m_fonts[fileName].get();
+}
+
+std::string GenerateHash(const char *data, size_t size)
+{
+    uint8_t result[16];
+
+    md5Buffer((char *)data, size, result);
+
+    char hash[33];
+    for (int i = 0; i < 16; i++) {
+        sprintf(hash + i * 2, "%02x", result[i]);
+    }
+
+    return std::string(hash);
 }

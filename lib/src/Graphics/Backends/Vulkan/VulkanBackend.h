@@ -102,6 +102,11 @@ namespace Graphics {
             std::map<ShaderFragmentType, VkPipeline> pipelines;
         };
 
+        struct VulkanImGui
+        {
+            VkDescriptorPool imguiPool;
+        };
+
         class Vulkan : public Base
         {
         public:
@@ -156,6 +161,7 @@ namespace Graphics {
 
             VulkanObject    m_Vulkan;
             VulkanSwapChain m_Swapchain;
+            VulkanImGui     m_Imgui;
 
             // OnExit program clean up
             DeletionQueue m_DeletionQueue;

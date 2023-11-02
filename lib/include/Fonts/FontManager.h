@@ -4,6 +4,7 @@
 #include <Graphics/GraphicsTexture2D.h>
 #include <filesystem>
 #include <glm/glm.hpp>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -63,7 +64,7 @@ namespace Fonts {
 
         static FontManager *m_instance;
 
-        std::vector<std::unique_ptr<FontAtlas>> m_fonts;
+        std::map<std::string, std::unique_ptr<FontAtlas>> m_fonts;
     };
 } // namespace Fonts
 

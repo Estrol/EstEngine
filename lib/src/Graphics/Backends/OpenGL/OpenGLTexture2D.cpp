@@ -49,13 +49,15 @@ void GLTexture2D::Load(const char *buf, size_t size)
         &Data.Size.Width,
         &Data.Size.Height,
         &Data.Channels,
-        0);
+        STBI_rgb_alpha);
 
     if (!image_data) {
         throw Exceptions::EstException("Failed to load texture");
     }
 
+    Data.Channels = 4; // always use RGBA
     Load((const char *)image_data, Data.Size.Width, Data.Size.Height);
+    stbi_image_free(image_data);
 }
 
 void GLTexture2D::Load(const char *pixbuf, uint32_t width, uint32_t height)
@@ -221,6 +223,12 @@ void GLTexture2D::Load(const char *pixbuf, uint32_t width, uint32_t height)
         GL_RGBA,
         GL_UNSIGNED_BYTE,
         pixbuf);
+
+    // check error
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        throw Exceptions::EstException("Failed to load texture");
+    }
 
     glGenerateMipmap(GL_TEXTURE_2D);
 

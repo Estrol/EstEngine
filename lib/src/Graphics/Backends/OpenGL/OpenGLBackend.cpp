@@ -17,14 +17,20 @@
 #include <Graphics/NativeWindow.h>
 #include <algorithm>
 
+#include "../../ImguiBackends/imgui_impl_opengl3.h"
+#include "../../ImguiBackends/imgui_impl_sdl2.h"
+
 #include <spirv_cross/spirv_glsl.hpp>
 
 using namespace Graphics::Backends;
 
-struct UniformData
+struct PushConstant
 {
-    float uScale[2];
-    float uTranslate[2];
+    glm::vec4 ui_radius;
+    glm::vec2 ui_size;
+
+    glm::vec2 scale;
+    glm::vec2 translate;
 };
 
 uint32_t glBlendOperatioId;
@@ -101,11 +107,13 @@ void OpenGL::Init()
     // float[2] scale, translation uniform buffer
     glGenBuffers(1, &Data.constantBuffer);
     glBindBuffer(GL_UNIFORM_BUFFER, Data.constantBuffer);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformData), NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(PushConstant), NULL, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, Data.constantBuffer);
 
     CreateShader();
     CreateDefaultBlend();
+
+    ImGui_Init();
 }
 
 void OpenGL::CreateShader()
@@ -135,6 +143,8 @@ void OpenGL::CreateShader()
         auto          fragment = compileSPRIV(shader.first, shader.second);
         const GLchar *sourcefragment = (const GLchar *)fragment.c_str();
 
+        std::cout << fragment << std::endl;
+
         GLuint fragmentId = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fragmentId, 1, &sourcefragment, nullptr);
         glCompileShader(fragmentId);
@@ -153,6 +163,12 @@ void OpenGL::CreateShader()
         glGetProgramiv(programId, GL_LINK_STATUS, &errcode);
 
         if (errcode != GL_TRUE) {
+            GLint length;
+            glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &length);
+            std::vector<char> log(length);
+            glGetProgramInfoLog(programId, length, &length, &log[0]);
+            std::cerr << "Linker error: " << &log[0] << std::endl;
+
             throw Exceptions::EstException("Failed to link shader program");
         }
 
@@ -169,7 +185,7 @@ void OpenGL::CreateDefaultBlend()
     // MUL dstRGB = (srcRGB * dstRGB) + (dstRGB * (1-srcA)), dstA = (srcA * dstA) + (dstA * (1-srcA))
 
     TextureBlendInfo blendNone = {
-        false,
+        true,
         BlendFactor::BLEND_FACTOR_ONE,
         BlendFactor::BLEND_FACTOR_ZERO,
         BlendOp::BLEND_OP_ADD,
@@ -231,6 +247,8 @@ void OpenGL::Shutdown()
         glDeleteTextures(1, &texture);
     }
 
+    ImGui_DeInit();
+
     textures.clear();
 
     // free the buffer
@@ -278,6 +296,8 @@ bool OpenGL::BeginFrame()
 void OpenGL::EndFrame()
 {
     FlushQueue();
+
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     SDL_GL_SwapWindow((SDL_Window *)Graphics::NativeWindow::Get()->GetWindow());
 }
@@ -398,14 +418,6 @@ void OpenGL::FlushQueue()
 
     auto rect = Graphics::NativeWindow::Get()->GetWindowSize();
 
-    float scale[2];
-    scale[0] = 2.0f / rect.Width;
-    scale[1] = -2.0f / rect.Height;
-
-    float translate[2];
-    translate[0] = -1.0f;
-    translate[1] = 1.0f;
-
     for (auto &info : submitInfos) {
         for (auto &vertex : info.vertices) {
             vertices.push_back(vertex);
@@ -439,19 +451,21 @@ void OpenGL::FlushQueue()
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)MY_OFFSETOF(Vertex, color));
 
-    UniformData pc;
-
-    memcpy(pc.uScale, scale, sizeof(scale));
-    memcpy(pc.uTranslate, translate, sizeof(translate));
-
-    glBindBuffer(GL_UNIFORM_BUFFER, Data.constantBuffer);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UniformData), &pc);
+    PushConstant pc = {};
+    pc.scale = glm::vec2(2.0f / rect.Width, -2.0f / rect.Height);
+    pc.translate = glm::vec2(-1.0f, 1.0f);
 
     for (auto &info : submitInfos) {
         auto  &vertices = info.vertices;
         auto  &indices = info.indices;
         auto   shadertype = info.fragmentType;
         GLuint imageId = static_cast<GLuint>(reinterpret_cast<intptr_t>(info.image));
+
+        pc.ui_radius = info.uiRadius;
+        pc.ui_size = info.uiSize;
+
+        glBindBuffer(GL_UNIFORM_BUFFER, Data.constantBuffer);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(PushConstant), &pc);
 
         auto shader = Data.shaders[shadertype].program;
         glUseProgram(shader);
@@ -523,16 +537,34 @@ BlendHandle OpenGL::CreateBlendState(TextureBlendInfo blendInfo)
 
 void OpenGL::ImGui_Init()
 {
+    ImGui::CreateContext();
+
+    auto window = Graphics::NativeWindow::Get();
+    ImGui_ImplSDL2_InitForOpenGL(window->GetWindow(), Data.ctx);
+    window->AddSDLCallback([=](SDL_Event &ev) {
+        ImGui_ImplSDL2_ProcessEvent(&ev);
+    });
+
+    ImGui_ImplOpenGL3_Init();
 }
 
 void OpenGL::ImGui_DeInit()
 {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+
+    ImGui::DestroyContext();
 }
 
 void OpenGL::ImGui_NewFrame()
 {
+    ImGui_ImplSDL2_NewFrame();
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui::NewFrame();
 }
 
 void OpenGL::ImGui_EndFrame()
 {
+    ImGui::EndFrame();
+    ImGui::Render();
 }

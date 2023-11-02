@@ -4,9 +4,6 @@
 #include <Exceptions/EstException.h>
 #include <fstream>
 
-#define SIGNALSMITH_STRETCH_IMPLEMENTATION
-#include <signalsmith-stretch/signalsmith-stretch.h>
-
 using namespace Audio;
 
 Stream::Stream()
@@ -102,8 +99,8 @@ void data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uin
         if (!sampleReaded)
             return;
 
-        auto& in = pData->InAudioChannels;
-		auto& out = pData->OutAudioChannels;
+        auto &in = pData->InAudioChannels;
+        auto &out = pData->OutAudioChannels;
 
         if (in.size() != pData->Decoder.outputChannels) {
             in.resize(pData->Decoder.outputChannels);
@@ -169,7 +166,7 @@ void Stream::Initialize()
     // Data.SoundTouch->setSampleRate(Data.Decoder.outputSampleRate);
     // Data.SoundTouch->setChannels(Data.Decoder.outputChannels);
 
-    Data.Stretch->presetDefault(Data.Decoder.outputChannels, static_cast<int>(Data.Decoder.outputSampleRate));
+    Data.Stretch->presetDefault(Data.Decoder.outputChannels, static_cast<float>(Data.Decoder.outputSampleRate));
 
     auto engineConfig = ma_engine_config_init();
     engineConfig.dataCallback = data_callback;

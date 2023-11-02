@@ -14,10 +14,22 @@
 #include "../../Shaders/position.spv.h"
 #include "../../Shaders/solid.spv.h"
 
+#include "../../ImguiBackends/imgui_impl_sdl2.h"
+#include "../../ImguiBackends/imgui_impl_vulkan.h"
+
 using namespace Graphics::Backends;
 
 constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 uint32_t           VkBlendOperatioId = 0;
+
+struct PushConstant
+{
+    glm::vec4 ui_radius;
+    glm::vec2 ui_size;
+
+    glm::vec2 scale;
+    glm::vec2 translate;
+};
 
 void Vulkan::Init()
 {
@@ -30,6 +42,8 @@ void Vulkan::Init()
     InitDescriptors();
     InitShaders();
     InitPipeline();
+
+    ImGui_Init();
 
     m_Initialized = true;
     m_FrameBegin = false;
@@ -63,6 +77,8 @@ void Graphics::Backends::Vulkan::Shutdown()
         if (m_FrameBegin) {
             __debugbreak();
         }
+
+        ImGui_DeInit();
 
         for (auto &descriptor : m_Descriptors) {
             DestroyDescriptor(descriptor.get(), false);
@@ -538,7 +554,7 @@ void Vulkan::InitPipeline()
     // MUL dstRGB = (srcRGB * dstRGB) + (dstRGB * (1-srcA)), dstA = (srcA * dstA) + (dstA * (1-srcA))
 
     TextureBlendInfo blendNone = {
-        false,
+        true,
         BlendFactor::BLEND_FACTOR_ONE,
         BlendFactor::BLEND_FACTOR_ZERO,
         BlendOp::BLEND_OP_ADD,
@@ -724,9 +740,11 @@ void Vulkan::EndFrame()
         throw Exceptions::EstException("Attempt to end-frame on swap chain not ready");
     }
 
-    FlushQueue();
-
     auto &frame = GetCurrentFrame();
+
+    FlushQueue();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame.commandBuffer);
+
     vkCmdEndRenderPass(frame.commandBuffer);
 
     auto result = vkEndCommandBuffer(frame.commandBuffer);
@@ -825,15 +843,6 @@ void Vulkan::FlushQueue()
         throw Exceptions::EstException("Failed to map GPU's index buffer");
     }
 
-    auto  rect = Graphics::NativeWindow::Get()->GetWindowSize();
-    float scale[2];
-    scale[0] = 2.0f / rect.Width;
-    scale[1] = 2.0f / rect.Height;
-
-    float translate[2];
-    translate[0] = -1.0f;
-    translate[1] = -1.0f;
-
     VkDeviceSize offset = 0;
     for (auto &info : submitInfos) {
         if (offset >= m_Swapchain.maxVertexBufferSize) {
@@ -852,6 +861,7 @@ void Vulkan::FlushQueue()
 
     vkUnmapMemory(m_Vulkan.vkbDevice.device, m_Swapchain.vertexBuffer.memory);
     vkUnmapMemory(m_Vulkan.vkbDevice.device, m_Swapchain.indexBuffer.memory);
+    auto rect = Graphics::NativeWindow::Get()->GetWindowSize();
 
     VkViewport viewport = {};
     viewport.x = 0;
@@ -869,13 +879,20 @@ void Vulkan::FlushQueue()
     int currentVertIndex = 0; // vertex
     int currentIndiIndex = 0; // indicies
 
+    PushConstant pc = {};
+
+    pc.scale = glm::vec2(2.0f / rect.Width, 2.0f / rect.Height);
+    pc.translate = glm::vec2(-1.0f, -1.0f);
+
     for (auto &info : submitInfos) {
         auto &blendinfo = m_BlendStates[info.alphablend];
         auto  pipeline = m_Swapchain.pipelineLayout;
         auto  graphics = blendinfo.pipelines[info.fragmentType];
 
-        vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 2, scale);
-        vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
+        pc.ui_size = info.uiSize;
+        pc.ui_radius = info.uiRadius;
+
+        vkCmdPushConstants(frame.commandBuffer, pipeline, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &pc);
 
         VkDescriptorSet image = (VkDescriptorSet)(info.image != 0 ? (void *)info.image : VK_NULL_HANDLE);
         uint32_t        imageCount = 1;
@@ -1082,8 +1099,8 @@ BlendHandle Vulkan::CreateBlendState(TextureBlendInfo blendInfo)
         {
             VkPushConstantRange push_constants[1] = {};
             push_constants[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-            push_constants[0].offset = sizeof(float) * 0;
-            push_constants[0].size = sizeof(float) * 4;
+            push_constants[0].offset = 0;
+            push_constants[0].size = sizeof(PushConstant);
             VkDescriptorSetLayout      set_layout[1] = { image_descriptor_layout };
             VkPipelineLayoutCreateInfo layout_info = {};
             layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1144,18 +1161,22 @@ BlendHandle Vulkan::CreateBlendState(TextureBlendInfo blendInfo)
         attribute_desc[2].binding = binding_desc[0].binding;
         attribute_desc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
         attribute_desc[2].offset = MY_OFFSETOF(Vertex, color);
+        // attribute_desc[3].location = 3;
+        // attribute_desc[3].binding = binding_desc[0].binding;
+        // attribute_desc[3].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        // attribute_desc[3].offset = MY_OFFSETOF(Vertex, cornerRadius);
 
         VkPipelineVertexInputStateCreateInfo vertex_info = {};
         vertex_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertex_info.vertexBindingDescriptionCount = 1;
         vertex_info.pVertexBindingDescriptions = binding_desc;
-        vertex_info.vertexAttributeDescriptionCount = 3;
+        vertex_info.vertexAttributeDescriptionCount = sizeof(attribute_desc) / sizeof(attribute_desc[0]);
         vertex_info.pVertexAttributeDescriptions = attribute_desc;
 
         VkPipelineInputAssemblyStateCreateInfo ia_info = {};
         ia_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        ia_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-        ia_info.primitiveRestartEnable = VK_TRUE;
+        ia_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        ia_info.primitiveRestartEnable = VK_FALSE;
 
         VkPipelineViewportStateCreateInfo viewport_info = {};
         viewport_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -1242,16 +1263,95 @@ BlendHandle Vulkan::CreateBlendState(TextureBlendInfo blendInfo)
 
 void Vulkan::ImGui_Init()
 {
+    VkDescriptorPoolSize pool_sizes[] = {
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1000;
+    pool_info.poolSizeCount = std::size(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+
+    VkDescriptorPool imguiPool;
+    auto             result = vkCreateDescriptorPool(
+        m_Vulkan.vkbDevice.device,
+        &pool_info,
+        nullptr,
+        &imguiPool);
+
+    if (result != VK_SUCCESS) {
+        throw Exceptions::EstException("Failed to init imgui descriptor pool");
+    }
+
+    ImGui::CreateContext();
+
+    auto window = Graphics::NativeWindow::Get();
+    ImGui_ImplSDL2_InitForVulkan(window->GetWindow());
+    window->AddSDLCallback([=](SDL_Event &ev) {
+        ImGui_ImplSDL2_ProcessEvent(&ev);
+    });
+
+    auto &IO = ImGui::GetIO();
+    auto  size = window->GetWindowSize();
+    IO.DisplaySize = ImVec2(size.Width, size.Height);
+
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = m_Vulkan.vkbInstance.instance;
+    init_info.PhysicalDevice = m_Vulkan.vkbDevice.physical_device;
+    init_info.Device = m_Vulkan.vkbDevice.device;
+    init_info.Queue = m_Vulkan.graphicsQueue;
+    init_info.DescriptorPool = imguiPool;
+    init_info.MinImageCount = 3;
+    init_info.ImageCount = 3;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+    ImGui_ImplVulkan_Init(&init_info, m_Swapchain.renderpass);
+
+    // Upload texture
+    ImmediateSubmit([=](VkCommandBuffer cmd) {
+        ImGui_ImplVulkan_CreateFontsTexture(cmd);
+    });
+
+    ImGui_ImplVulkan_DestroyFontUploadObjects();
+
+    m_Imgui.imguiPool = imguiPool;
 }
 
 void Vulkan::ImGui_DeInit()
 {
+    if (m_Imgui.imguiPool == VK_NULL_HANDLE) {
+        return;
+    }
+
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+
+    vkDestroyDescriptorPool(m_Vulkan.vkbDevice.device, m_Imgui.imguiPool, nullptr);
+
+    ImGui::DestroyContext();
 }
 
 void Vulkan::ImGui_NewFrame()
 {
+    ImGui_ImplSDL2_NewFrame();
+    ImGui_ImplVulkan_NewFrame();
+    ImGui::NewFrame();
 }
 
 void Vulkan::ImGui_EndFrame()
 {
+    ImGui::EndFrame();
+    ImGui::Render();
 }

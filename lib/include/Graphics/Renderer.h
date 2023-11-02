@@ -20,6 +20,9 @@ namespace Graphics {
         bool BeginFrame();
         void EndFrame();
 
+        void ImGui_NewFrame();
+        void ImGui_EndFrame();
+
         void Push(Graphics::Backends::SubmitInfo &info);
 
         Backends::Base *GetBackend();

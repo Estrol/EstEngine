@@ -1,6 +1,7 @@
 #include <Exceptions/EstException.h>
 #include <Graphics/NativeWindow.h>
 #include <Graphics/Renderer.h>
+
 using namespace Graphics;
 
 NativeWindow *NativeWindow::s_Instance = nullptr;

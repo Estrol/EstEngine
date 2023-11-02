@@ -13,12 +13,13 @@ Base::Base()
     Position = UDim2::fromScale(0.0, 0.0);
     Size = UDim2::fromScale(1.0, 1.0);
     AnchorPoint = { 0.0f, 0.0f };
+    CornerRadius = { 0.0f, 0.0f, 0.0f, 0.0f };
     Color3 = Color3::fromRGB(255, 255, 255);
     Transparency = 1;
     Rotation = 0;
     Parent = nullptr;
     ClampToParent = false;
-    BlendState = Graphics::Backends::DefaultBlend::ADD;
+    BlendState = Graphics::Backends::DefaultBlend::BLEND;
 
     m_renderMode = RenderMode::Normal;
     m_texturePtr = nullptr;
@@ -44,6 +45,13 @@ void Base::Draw(Rect _clipRect)
     clipRect = _clipRect;
     OnDraw();
     DrawVertices();
+}
+
+float CalculatePixelSize(float alpha, const glm::vec2 &rectSize)
+{
+    float diagonalSize = glm::length(rectSize);
+    float pixelSize = alpha * diagonalSize;
+    return pixelSize;
 }
 
 void Base::CalculateSize()
@@ -77,6 +85,12 @@ void Base::CalculateSize()
 
     AbsolutePosition = { X + x0, Y + y0 };
     AbsoluteSize = { x1, y1 };
+
+    roundedCornerPixels = glm::vec4(
+        CalculatePixelSize(static_cast<float>(CornerRadius.XY.X), glm::vec2(x1, y1)),
+        CalculatePixelSize(static_cast<float>(CornerRadius.XY.Y), glm::vec2(x1, y1)),
+        CalculatePixelSize(static_cast<float>(CornerRadius.ZW.X), glm::vec2(x1, y1)),
+        CalculatePixelSize(static_cast<float>(CornerRadius.ZW.Y), glm::vec2(x1, y1)));
 }
 
 void Base::DrawVertices()
@@ -85,12 +99,16 @@ void Base::DrawVertices()
     auto renderer = Graphics::Renderer::Get();
 
     if (m_renderMode == RenderMode::Normal) {
+        glm::vec2 absoluteSize = glm::vec2(AbsoluteSize.X, AbsoluteSize.Y);
+
         SubmitInfo info = {};
         info.clipRect = clipRect;
         info.vertices = m_vertices;
         info.fragmentType = shaderFragmentType;
         info.indices = m_indices;
         info.alphablend = BlendState;
+        info.uiSize = absoluteSize;
+        info.uiRadius = roundedCornerPixels;
 
         if (m_texturePtr != nullptr) {
             info.image = m_texturePtr->GetId();
@@ -121,12 +139,16 @@ void Base::InsertToBatch()
         return;
     }
 
+    glm::vec2 absoluteSize = glm::vec2(AbsoluteSize.X, AbsoluteSize.Y);
+
     SubmitInfo info = {};
     info.clipRect = clipRect;
     info.vertices = m_vertices;
     info.fragmentType = shaderFragmentType;
     info.indices = m_indices;
     info.alphablend = BlendState;
+    info.uiSize = absoluteSize;
+    info.uiRadius = roundedCornerPixels;
 
     if (m_texturePtr != nullptr) {
         info.image = m_texturePtr->GetId();

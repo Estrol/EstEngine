@@ -31,7 +31,7 @@ foreach(shader IN LISTS SHADERS)
     message("[SHADER] Compiling shaders ${shader} -> ${out_file}")
 
     execute_process(
-        COMMAND "${glslangValidator}" 
+        COMMAND "${glslangValidator}" -gVS
             -V -o ${out_file}
             --vn "__glsl_${out_string}" ${shader}
 
@@ -87,6 +87,7 @@ add_library(EstEngineLib STATIC ${HEADERS}
     "src/Math/UDim.cpp" 
     "src/Math/UDim2.cpp" 
     "src/Math/Vector2.cpp" 
+    "src/Math/Vector4.cpp"
 
     # Inputs
     "src/Inputs/InputManager.cpp" 
@@ -103,7 +104,19 @@ add_library(EstEngineLib STATIC ${HEADERS}
     # Misc
     "src/Exceptions/EstException.cpp" 
     "src/Misc/Filesystem.cpp"
+    "src/Misc/MD5.cpp"
     "src/Graphics/Utils/stb_image.cpp"
+    "src/Graphics/Utils/signalsmith-stretch.cpp"
+
+    # Imgui
+    "src/Imgui/imgui.cpp" 
+    "src/Imgui/imgui_draw.cpp" 
+    "src/Imgui/imgui_tables.cpp" 
+    "src/Imgui/imgui_widgets.cpp"
+    "src/Imgui/imgui_demo.cpp"
+    "src/Graphics/ImguiBackends/imgui_impl_sdl2.cpp"
+    "src/Graphics/ImguiBackends/imgui_impl_vulkan.cpp"
+    "src/Graphics/ImguiBackends/imgui_impl_opengl3.cpp"
 )
 
 include_directories("./include")

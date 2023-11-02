@@ -7,6 +7,7 @@
 #include <Math/Color3.h>
 #include <Math/UDim2.h>
 #include <Math/Vector2.h>
+#include <Math/Vector4.h>
 
 namespace UI {
     enum class RenderMode {
@@ -31,6 +32,7 @@ namespace UI {
 
         Color3  Color3;
         Vector2 AnchorPoint;
+        Vector4 CornerRadius;
 
         Graphics::Backends::BlendHandle BlendState;
 
@@ -46,6 +48,8 @@ namespace UI {
         virtual void OnDraw();
         void         InsertToBatch();
         void         RotateVertex();
+
+        glm::vec4 roundedCornerPixels;
 
         Rect                                   clipRect = {};
         Graphics::Backends::ShaderFragmentType shaderFragmentType;
